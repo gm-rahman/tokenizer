@@ -39,6 +39,7 @@ Dense, token-cheap state record. Read this first. Append newest entries at top o
 - OPEN: which color preview variation to ship; vitest yes/no; then write spec + plan.
 
 ## LOG
+- 2026-07-06: Git workflow: dev branch = everything; main = necessary files only (src, configs, manifest, .github, CLAUDE.md, .gitignore). Renamed branch claude/... → `dev`. Sync via `bash scripts/sync-to-main.sh` (copies necessary paths dev→main + push; never merge dev→main). Both pushed to origin (github.com:gm-rahman/tokenizer).
 - 2026-07-06: BUILT the redesign. types.ts (TypeStyle, ColorRole+role, fonts msg). utils.ts: defaultTypeStyles/resolveStyleName/SEMANTIC_TOKENS/resolveSemanticTokens (+15 vitest tests, TDD, all green). code.ts: posts font list, showUI 760x640, weight-loop typography, role-based color pass w/ abort+skip notify. ui.tsx: full two-column rewrite (font dropdowns, editable styles w/ weight chips + per-style font + uppercase, live specimen; role-tagged families, Ramps+Tokens preview). ui.css: sleek Figma-native two-column. Verified: typecheck+test(15)+lint+build all pass. Added vitest dep + `npm test`. Old buildTypeScale/TYPE_LEVELS/TypeLevelOverride removed.
 - 2026-07-06: UI window enlarged 380x640 → 760x820 (code.ts:13 showUI). Content capped max-width 680px + centered (.tab, .footer>* in ui.css) so wide window doesn't stretch forms. Rebuilt OK.
 - 2026-07-06: Verified project ready — typecheck+build pass, dist correct. Created this log. Explained Figma import (no headless run possible).

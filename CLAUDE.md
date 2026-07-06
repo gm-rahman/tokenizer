@@ -109,5 +109,9 @@ src/types.ts             UI <-> sandbox message contracts
 
 ## Git
 
-- Develop on the branch `claude/figma-token-generator-plugin-b5q5nv`.
+- Develop on the `dev` branch. It holds everything, including dev-only artifacts
+  (`plan/`, `.claude/`, `log.md`, `docs/`).
+- `main` holds **only the shipped project files** — no planning/session artifacts.
+  Don't merge `dev` into `main` directly; run `bash scripts/sync-to-main.sh` to
+  copy just the necessary paths from `dev` onto `main` and push.
 - Commits are authored as `Claude <noreply@anthropic.com>`.
