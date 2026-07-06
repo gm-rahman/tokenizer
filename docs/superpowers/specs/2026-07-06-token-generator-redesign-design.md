@@ -64,7 +64,25 @@ New sandbox→UI message so the UI can populate font dropdowns:
 | { type: 'fonts'; families: string[] }
 ```
 
-`ColorFamilyInput`, `GenerateColorsPayload`, and the color `space` are unchanged.
+**Color families gain an explicit semantic role** — this is how the plugin knows
+which family is Primary vs Neutral vs Success, instead of guessing by name or
+position:
+
+```ts
+export type ColorRole =
+  | 'neutral' | 'primary' | 'secondary'
+  | 'success' | 'warning' | 'danger' | 'none';
+
+export interface ColorFamilyInput {
+  name: string;      // variable prefix, e.g. "slate" → slate/500 (unchanged)
+  baseHex: string;   // ramp base (unchanged)
+  role: ColorRole;   // NEW — drives semantic-token resolution
+}
+```
+
+`role` is family **metadata**, independent of `name`: renaming `blue`→`brand`
+doesn't change which family is Primary. `GenerateColorsPayload` and `space` are
+otherwise unchanged.
 
 ## Pure logic (`src/utils.ts`)
 
@@ -79,38 +97,55 @@ Add, keeping the module dependency-free:
   → `name`; otherwise `` `${name}/${WEIGHT_TO_STYLE[weight]}` `` (e.g. `Body/Bold`).
   `WEIGHT_TO_STYLE` moves here (shared) or is duplicated minimally; single source
   preferred.
+- `resolveSemanticTokens(families): { plan, skipped, missingRequired }` — pure
+  role resolver. For each entry in `SEMANTIC_TOKENS`, find the family whose `role`
+  matches (first-wins; `action/secondary` falls back `secondary`→`neutral`) and
+  emit `{ token, lightFamily, lightStep, darkFamily, darkStep }` into `plan`.
+  Collect roles referenced but unassigned into `skipped`; if `neutral` or `primary`
+  is missing, list them in `missingRequired`. `code.ts` turns `plan` into
+  `VariableAlias`es and uses `skipped`/`missingRequired` for its notify text.
 - **Layered semantic token map** — replace the current inline mapping in `code.ts`
-  with an exported `SEMANTIC_TOKENS` table describing each token's family+step for
-  Light and Dark. Groups and mappings (primitive families: `slate` neutral, `blue`
-  accent, plus `green`/`amber`/`red` for feedback):
+  with an exported `SEMANTIC_TOKENS` table. Each token names a **role** plus a
+  Light step and a Dark step; the resolver looks up the family assigned that role
+  and aliases the matching primitive. No token hard-codes a family name.
 
-  | Group | Token | Light | Dark |
-  |---|---|---|---|
-  | Surface | `bg/canvas` | slate 100 | slate 950 |
-  | | `bg/surface` | slate 50 | slate 900 |
-  | | `bg/subtle` | slate 100 | slate 900 |
-  | | `bg/muted` | slate 200 | slate 800 |
-  | Content | `text/primary` | slate 900 | slate 50 |
-  | | `text/secondary` | slate 600 | slate 400 |
-  | | `text/disabled` | slate 400 | slate 600 |
-  | | `text/on-accent` | slate 50 | slate 50 |
-  | Border | `border/default` | slate 200 | slate 800 |
-  | | `border/strong` | slate 300 | slate 700 |
-  | | `border/focus` | blue 500 | blue 400 |
-  | Action | `action/primary` | blue 600 | blue 500 |
-  | | `action/primary-hover` | blue 700 | blue 400 |
-  | | `action/secondary` | slate 200 | slate 800 |
-  | Feedback | `success` | green 600 | green 500 |
-  | | `warning` | amber 500 | amber 400 |
-  | | `danger` | red 600 | red 500 |
+  | Group | Token | Role | Light step | Dark step |
+  |---|---|---|---|---|
+  | Surface | `bg/canvas` | neutral | 100 | 950 |
+  | | `bg/surface` | neutral | 50 | 900 |
+  | | `bg/subtle` | neutral | 100 | 900 |
+  | | `bg/muted` | neutral | 200 | 800 |
+  | Content | `text/primary` | neutral | 900 | 50 |
+  | | `text/secondary` | neutral | 600 | 400 |
+  | | `text/disabled` | neutral | 400 | 600 |
+  | | `text/on-accent` | neutral | 50 | 50 |
+  | Border | `border/default` | neutral | 200 | 800 |
+  | | `border/strong` | neutral | 300 | 700 |
+  | | `border/focus` | primary | 500 | 400 |
+  | Action | `action/primary` | primary | 600 | 500 |
+  | | `action/primary-hover` | primary | 700 | 400 |
+  | | `action/secondary` | secondary→neutral | 200 | 800 |
+  | Feedback | `success` | success | 600 | 500 |
+  | | `warning` | warning | 500 | 400 |
+  | | `danger` | danger | 600 | 500 |
 
-  Every token is a `VariableAlias` onto a primitive step (no raw color values;
-  `text/on-accent` uses the lightest neutral step rather than a literal white).
-  Tokens reference primitives by **role**, not literal family name: neutral→first
-  family (or a family named `slate`/`gray`/`neutral` if present), accent→second
-  family (or `blue`/`brand`), feedback→families named `green`/`amber`/`red` when
-  present. If a referenced role/family is absent, that token is **skipped** (and
-  reported), so semantic generation degrades gracefully instead of erroring.
+  **Role resolution rules:**
+  - Each token aliases the family whose `role` matches, at the given step, for each
+    mode. Every token is a `VariableAlias` onto a primitive step (no raw values;
+    `text/on-accent` uses the lightest neutral step, not a literal white).
+  - **`action/secondary` fallback** (the "support both" decision): use the
+    `secondary` family if one is tagged; otherwise fall back to `neutral`. Same
+    200→800 steps either way, so a tagged secondary hue reads as a soft tint and the
+    neutral fallback reads as a quiet gray.
+  - **Required roles:** `neutral` and `primary`. If either is missing, semantic
+    generation is aborted with a clear `figma.notify` message (primitives still
+    generate).
+  - **Optional roles:** `secondary`, `success`, `warning`, `danger`. Tokens whose
+    role is unassigned are **skipped and reported** in the done message
+    (e.g. "16 tokens · skipped success, warning — no family tagged"), so the pass
+    degrades gracefully.
+  - **Duplicate roles:** if two families share a role, the first (top-most) wins.
+    A `none` role never participates in semantic tokens (primitives only).
 
 ## Sandbox (`src/code.ts`)
 
@@ -123,9 +158,11 @@ Add, keeping the module dependency-free:
   weight→style-name fallback, find-or-update the text style by
   `resolveStyleName(...)`, and set size/lineHeight/letterSpacing/textCase. Progress
   `total` = Σ weights. No `buildTypeScale` in the sandbox anymore.
-- `generateColors`: drive the semantic pass from `SEMANTIC_TOKENS`; resolve each
-  token's Light/Dark primitive via the role rules above; skip-and-report missing
-  roles.
+- `generateColors`: call `resolveSemanticTokens(families)`. If `missingRequired` is
+  non-empty, skip the semantic pass and `figma.notify` which required roles are
+  unassigned. Otherwise create/update each planned token as a Light/Dark
+  `VariableAlias` onto the corresponding primitive variable, and include `skipped`
+  roles in the done message.
 
 ## UI (`src/ui.tsx`, `src/ui.css`)
 
@@ -151,10 +188,13 @@ from `var(--figma-color-*)`; 8px grid; hairline borders; one accent
   installed in the iframe; size/weight/spacing always exact).
 
 **Colors tab.**
-- Left: color-space segmented control (OKLCH/HSL/HSB), families card
-  (name + hex + swatch + remove, "+ Add family"), "Generate Light/Dark semantic
-  tokens" toggle. Default families seed with `slate`, `blue`, `green`, `amber`,
-  `red` so Feedback resolves out of the box.
+- Left: color-space segmented control (OKLCH/HSL/HSB), families card, and the
+  "Generate Light/Dark semantic tokens" toggle. Each family row shows name + hex +
+  swatch + **Role dropdown** (Neutral / Primary / Secondary / Success / Warning /
+  Danger / None) + remove, plus "+ Add family". Default families seed with roles
+  pre-assigned: `slate`→Neutral, `blue`→Primary, `green`→Success, `amber`→Warning,
+  `red`→Danger, so every token resolves out of the box. A small inline hint flags
+  when a required role (Neutral/Primary) is unassigned.
 - Right preview: **Ramps + Tokens** — compact 11-step ramps per family (hover for
   hex) at top, then the grouped semantic list with **dual Light/Dark chips** per
   token showing it resolving per mode.
@@ -167,8 +207,10 @@ Add **vitest** (dev dependency; `test` script). Unit-test the pure seams in
 - `defaultTypeStyles` — count (8), names, that stepped sizes follow
   `base·ratio^step·multiplier`, Body has two weights, Label is UPPER.
 - `resolveStyleName` — single vs multi-weight naming.
-- `SEMANTIC_TOKENS` / resolver — every token maps to a valid primitive step for
-  both modes; role fallback picks the right family; missing role → skipped.
+- `resolveSemanticTokens` — default families produce a full plan with no skips;
+  `action/secondary` falls back neutral→secondary correctly; a tagged `secondary`
+  family is preferred; dropping `green` skips only `success`; dropping the neutral
+  or primary family reports `missingRequired`; duplicate roles → first wins.
 - Existing color math (`generateScale`, conversions) — a couple of guard tests.
 
 Full verification: `npm run typecheck && npm run lint && npm test && npm run build`,
