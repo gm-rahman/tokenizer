@@ -1,5 +1,16 @@
 import { describe, test, expect } from 'vitest';
-import { defaultTypeStyles, resolveStyleName, resolveSemanticTokens } from './utils';
+import {
+  defaultTypeStyles,
+  resolveStyleName,
+  resolveSemanticTokens,
+  textStyleVariables,
+  elevationVarNames,
+  SPACING_SCALE,
+  RADIUS_SCALE,
+  ELEVATION_LEVELS,
+  DEFAULT_LAYOUT_MODES,
+} from './utils';
+import type { ExtractedTextStyle } from './utils';
 import type { ColorFamilyInput } from './types';
 
 describe('defaultTypeStyles', () => {
@@ -117,5 +128,79 @@ describe('resolveSemanticTokens', () => {
     ];
     const { plan } = resolveSemanticTokens(dupes);
     expect(plan.find((p) => p.token === 'text/primary')!.lightFamily).toBe('zinc');
+  });
+});
+
+describe('textStyleVariables', () => {
+  const style: ExtractedTextStyle = {
+    name: 'Heading 1',
+    fontFamily: 'Inter',
+    fontWeight: 'Bold',
+    fontSize: 24,
+    lineHeight: 32,
+    letterSpacing: -0.2,
+    paragraphSpacing: 8,
+  };
+
+  test('emits six variables prefixed with the style name', () => {
+    const vars = textStyleVariables(style);
+    expect(vars.map((v) => v.name)).toEqual([
+      'Heading 1/FontFamily',
+      'Heading 1/FontWeight',
+      'Heading 1/FontSize',
+      'Heading 1/LineHeight',
+      'Heading 1/LetterSpacing',
+      'Heading 1/ParagraphSpacing',
+    ]);
+  });
+
+  test('strings for family/weight, floats for the numeric props', () => {
+    const vars = textStyleVariables(style);
+    const byName = (n: string) => vars.find((v) => v.name === `Heading 1/${n}`)!;
+    expect(byName('FontFamily')).toMatchObject({ type: 'STRING', value: 'Inter' });
+    expect(byName('FontWeight')).toMatchObject({ type: 'STRING', value: 'Bold' });
+    expect(byName('FontSize')).toMatchObject({ type: 'FLOAT', value: 24 });
+    expect(byName('LetterSpacing')).toMatchObject({ type: 'FLOAT', value: -0.2 });
+  });
+
+  test('nested style names stay nested (Body/Bold -> Body/Bold/FontSize)', () => {
+    const vars = textStyleVariables({ ...style, name: 'Body/Bold' });
+    expect(vars.some((v) => v.name === 'Body/Bold/FontSize')).toBe(true);
+  });
+});
+
+describe('universal system data', () => {
+  test('spacing is ascending and starts at 0', () => {
+    expect(SPACING_SCALE[0].value).toBe(0);
+    const values = SPACING_SCALE.map((s) => s.value);
+    expect([...values].sort((a, b) => a - b)).toEqual(values);
+  });
+
+  test('radius scale runs from none to a pill value', () => {
+    expect(RADIUS_SCALE[0]).toMatchObject({ name: 'none', value: 0 });
+    expect(RADIUS_SCALE[RADIUS_SCALE.length - 1].name).toBe('full');
+  });
+
+  test('elevation opacity climbs with level', () => {
+    const ops = ELEVATION_LEVELS.map((e) => e.opacity);
+    expect([...ops].sort((a, b) => a - b)).toEqual(ops);
+  });
+
+  test('elevationVarNames yields the five components for a level', () => {
+    expect(elevationVarNames(2).map((n) => n.name)).toEqual([
+      'elevation/2/x',
+      'elevation/2/y',
+      'elevation/2/blur',
+      'elevation/2/spread',
+      'elevation/2/opacity',
+    ]);
+  });
+});
+
+describe('layout defaults', () => {
+  test('three breakpoints with ascending widths and columns', () => {
+    expect(DEFAULT_LAYOUT_MODES.map((m) => m.name)).toEqual(['Mobile', 'Tablet', 'Desktop']);
+    expect(DEFAULT_LAYOUT_MODES.map((m) => m.width)).toEqual([402, 768, 1440]);
+    expect(DEFAULT_LAYOUT_MODES.map((m) => m.columns)).toEqual([4, 8, 12]);
   });
 });

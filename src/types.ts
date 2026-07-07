@@ -55,16 +55,41 @@ export interface GenerateTypographyPayload {
   styles: TypeStyle[];
 }
 
+/** Universal design-system pass: spacing, radii, and elevation. */
+export interface GenerateSystemPayload {
+  /** Hex tint for elevation shadows; written as the elevation/shadow-tint color. */
+  shadowTint: string;
+  /** Also create drag-and-drop drop-shadow Effect Styles (elevation/1..5). */
+  includeEffectStyles: boolean;
+}
+
+/** Breakpoint / Layout-Grid variables, one value per mode. */
+export interface GenerateLayoutPayload {
+  modes: LayoutModePayload[];
+}
+
+export interface LayoutModePayload {
+  name: string;
+  width: number;
+  columns: number;
+  margin: number;
+  gutter: number;
+}
+
 // UI iframe -> sandbox.
 export type UiMessage =
   | { type: 'generate-colors'; payload: GenerateColorsPayload }
   | { type: 'generate-typography'; payload: GenerateTypographyPayload }
+  | { type: 'generate-system'; payload: GenerateSystemPayload }
+  | { type: 'generate-layout'; payload: GenerateLayoutPayload }
+  | { type: 'generate-text-variables' }
   | { type: 'resize'; width: number; height: number }
   | { type: 'cancel' };
 
 // Sandbox -> UI iframe.
 export type PluginMessage =
   | { type: 'fonts'; families: string[] }
+  | { type: 'text-styles'; names: string[] }
   | { type: 'progress'; message: string; current: number; total: number }
   | { type: 'done'; message: string }
   | { type: 'error'; message: string };

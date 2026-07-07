@@ -459,3 +459,153 @@ export function resolveSemanticTokens(families: ColorFamilyInput[]): SemanticRes
 
   return { plan, skipped, missingRequired };
 }
+
+// ---------------------------------------------------------------------------
+// Universal design system (spacing / radii / elevation)
+// One opinionated token set distilled from Stripe, Vercel, Apple HIG, and
+// Material 3: a base-4 spacing scale with a fine micro step, a shape scale from
+// sharp to pill, and five crisp elevation levels. All values are plain data so
+// they can be previewed in the UI and written by the sandbox unchanged.
+// ---------------------------------------------------------------------------
+
+export interface TokenValue {
+  /** Suffix after the group prefix, e.g. "2" -> space/2, "md" -> radius/md. */
+  name: string;
+  /** Pixel value written to the variable. */
+  value: number;
+}
+
+/** Base-4 spacing with a 2px micro step (space/1) for fine interactive padding. */
+export const SPACING_SCALE: TokenValue[] = [
+  { name: '0', value: 0 },
+  { name: '1', value: 2 },
+  { name: '2', value: 4 },
+  { name: '3', value: 8 },
+  { name: '4', value: 12 },
+  { name: '5', value: 16 },
+  { name: '6', value: 20 },
+  { name: '7', value: 24 },
+  { name: '8', value: 32 },
+  { name: '9', value: 40 },
+  { name: '10', value: 48 },
+  { name: '11', value: 64 },
+  { name: '12', value: 96 },
+];
+
+/** Shape scale: sharp inner elements → soft cards → pill. `full` is a large px. */
+export const RADIUS_SCALE: TokenValue[] = [
+  { name: 'none', value: 0 },
+  { name: 'xs', value: 4 },
+  { name: 'sm', value: 6 },
+  { name: 'md', value: 8 },
+  { name: 'lg', value: 12 },
+  { name: 'xl', value: 16 },
+  { name: '2xl', value: 24 },
+  { name: 'full', value: 9999 },
+];
+
+export interface ElevationLevel {
+  level: number;
+  /** Shadow offset X / Y in px. */
+  x: number;
+  y: number;
+  /** Blur radius in px. */
+  blur: number;
+  /** Spread in px (negative tightens the shadow). */
+  spread: number;
+  /** Shadow alpha as a percentage (0–100), applied to the shadow tint. */
+  opacity: number;
+}
+
+/** Five levels of crisp elevation; opacity climbs and shadows soften with height. */
+export const ELEVATION_LEVELS: ElevationLevel[] = [
+  { level: 1, x: 0, y: 1, blur: 2, spread: 0, opacity: 5 },
+  { level: 2, x: 0, y: 2, blur: 4, spread: -1, opacity: 8 },
+  { level: 3, x: 0, y: 4, blur: 8, spread: -2, opacity: 10 },
+  { level: 4, x: 0, y: 8, blur: 16, spread: -4, opacity: 12 },
+  { level: 5, x: 0, y: 16, blur: 24, spread: -6, opacity: 14 },
+];
+
+/** Cool near-black default for the shadow tint; editable in the UI. */
+export const DEFAULT_SHADOW_TINT = '#101828';
+
+/** Elevation number-variable names for a level, e.g. elevation/2/blur. */
+export function elevationVarNames(level: number): { prop: keyof Omit<ElevationLevel, 'level'>; name: string }[] {
+  return (['x', 'y', 'blur', 'spread', 'opacity'] as const).map((prop) => ({
+    prop,
+    name: `elevation/${level}/${prop}`,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Layout & breakpoints
+// A responsive foundation: one Number variable per grid property, resolving to a
+// different value in each breakpoint mode so it can be bound to Layout Grids.
+// ---------------------------------------------------------------------------
+
+export interface LayoutMode {
+  /** Mode name and breakpoint label, e.g. "Mobile". */
+  name: string;
+  /** Breakpoint/Width for this mode. */
+  width: number;
+  /** Grid/Columns count. */
+  columns: number;
+  /** Grid/Margin (px). Figma Number variables can't be "auto", so use a value. */
+  margin: number;
+  /** Grid/Gutter (px). */
+  gutter: number;
+}
+
+export const DEFAULT_LAYOUT_MODES: LayoutMode[] = [
+  { name: 'Mobile', width: 402, columns: 4, margin: 16, gutter: 16 },
+  { name: 'Tablet', width: 768, columns: 8, margin: 32, gutter: 24 },
+  { name: 'Desktop', width: 1440, columns: 12, margin: 64, gutter: 24 },
+];
+
+/** Number variables written to the Layout & Breakpoints collection, one per mode. */
+export const LAYOUT_VARIABLES: { name: string; key: keyof Omit<LayoutMode, 'name'> }[] = [
+  { name: 'Breakpoint/Width', key: 'width' },
+  { name: 'Grid/Columns', key: 'columns' },
+  { name: 'Grid/Margin', key: 'margin' },
+  { name: 'Grid/Gutter', key: 'gutter' },
+];
+
+// ---------------------------------------------------------------------------
+// Text styles -> variables
+// Expand a text style's resolved values into the Number / String variables that
+// make up its entry in the Typography Variables collection. Pure so the mapping
+// (names + types) is unit-testable; the sandbox reads the styles and writes them.
+// ---------------------------------------------------------------------------
+
+export interface ExtractedTextStyle {
+  /** Text-style name, used verbatim as the variable group, e.g. "Body/Bold". */
+  name: string;
+  fontFamily: string;
+  /** Font style name as the weight label, e.g. "Semi Bold". */
+  fontWeight: string;
+  fontSize: number;
+  /** Line height in px (0 when the style uses AUTO). */
+  lineHeight: number;
+  /** Letter spacing in px. */
+  letterSpacing: number;
+  /** Paragraph spacing in px. */
+  paragraphSpacing: number;
+}
+
+export interface TextStyleVar {
+  name: string;
+  type: 'FLOAT' | 'STRING';
+  value: number | string;
+}
+
+/** Six variables per text style: two strings (family, weight) + four numbers. */
+export function textStyleVariables(s: ExtractedTextStyle): TextStyleVar[] {
+  return [
+    { name: `${s.name}/FontFamily`, type: 'STRING', value: s.fontFamily },
+    { name: `${s.name}/FontWeight`, type: 'STRING', value: s.fontWeight },
+    { name: `${s.name}/FontSize`, type: 'FLOAT', value: s.fontSize },
+    { name: `${s.name}/LineHeight`, type: 'FLOAT', value: s.lineHeight },
+    { name: `${s.name}/LetterSpacing`, type: 'FLOAT', value: s.letterSpacing },
+    { name: `${s.name}/ParagraphSpacing`, type: 'FLOAT', value: s.paragraphSpacing },
+  ];
+}
