@@ -538,6 +538,131 @@ export function elevationVarNames(level: number): { prop: keyof Omit<ElevationLe
 }
 
 // ---------------------------------------------------------------------------
+// Extended foundation token layers
+// The remaining token layers an industry-standard design system carries, beyond
+// the spacing/radii/elevation above: motion (duration + easing), opacity + state
+// layers, border widths, z-index, focus ring, and icon sizes. One opinionated,
+// merged set distilled from the W3C DTCG taxonomy and Material 3 / Tailwind / Radix.
+// Kept as plain data (scopes as strings, cast to VariableScope in the sandbox) so
+// this module stays free of the `figma` global and previews in the UI unchanged.
+// ---------------------------------------------------------------------------
+
+export interface SystemTokenGroup {
+  /** Variable group prefix, e.g. "duration" -> duration/fast. */
+  prefix: string;
+  /** UI section heading, e.g. "Motion · Duration". */
+  label: string;
+  type: 'FLOAT' | 'STRING';
+  /** Figma VariableScope names applied in the sandbox; [] leaves the default. */
+  scopes: string[];
+  tokens: { name: string; value: number | string }[];
+}
+
+export const SYSTEM_TOKEN_GROUPS: SystemTokenGroup[] = [
+  {
+    prefix: 'duration',
+    label: 'Motion · Duration',
+    type: 'FLOAT',
+    scopes: [],
+    tokens: [
+      { name: 'instant', value: 100 },
+      { name: 'fast', value: 150 },
+      { name: 'normal', value: 200 },
+      { name: 'slow', value: 300 },
+      { name: 'slower', value: 400 },
+      { name: 'slowest', value: 500 },
+    ],
+  },
+  {
+    prefix: 'easing',
+    label: 'Motion · Easing',
+    type: 'STRING',
+    scopes: [],
+    tokens: [
+      { name: 'linear', value: 'cubic-bezier(0, 0, 1, 1)' },
+      { name: 'standard', value: 'cubic-bezier(0.2, 0, 0, 1)' },
+      { name: 'emphasized', value: 'cubic-bezier(0.05, 0.7, 0.1, 1)' },
+      { name: 'decelerate', value: 'cubic-bezier(0, 0, 0, 1)' },
+      { name: 'accelerate', value: 'cubic-bezier(0.3, 0, 1, 1)' },
+    ],
+  },
+  {
+    prefix: 'opacity',
+    label: 'Opacity',
+    type: 'FLOAT',
+    scopes: ['OPACITY'],
+    tokens: [
+      { name: 'disabled', value: 0.38 },
+      { name: 'muted', value: 0.6 },
+      { name: 'backdrop', value: 0.5 },
+    ],
+  },
+  {
+    prefix: 'state',
+    label: 'State layers',
+    type: 'FLOAT',
+    scopes: ['OPACITY'],
+    tokens: [
+      { name: 'hover', value: 0.08 },
+      { name: 'focus', value: 0.12 },
+      { name: 'pressed', value: 0.12 },
+      { name: 'dragged', value: 0.16 },
+    ],
+  },
+  {
+    prefix: 'stroke',
+    label: 'Border width',
+    type: 'FLOAT',
+    scopes: ['STROKE_FLOAT'],
+    tokens: [
+      { name: 'none', value: 0 },
+      { name: 'sm', value: 1 },
+      { name: 'md', value: 2 },
+      { name: 'lg', value: 4 },
+    ],
+  },
+  {
+    prefix: 'z',
+    label: 'Z-index',
+    type: 'FLOAT',
+    scopes: [],
+    tokens: [
+      { name: 'dropdown', value: 1000 },
+      { name: 'sticky', value: 1100 },
+      { name: 'overlay', value: 1300 },
+      { name: 'modal', value: 1400 },
+      { name: 'popover', value: 1500 },
+      { name: 'toast', value: 1700 },
+      { name: 'tooltip', value: 1800 },
+    ],
+  },
+  {
+    prefix: 'focus',
+    label: 'Focus ring',
+    type: 'FLOAT',
+    scopes: [],
+    tokens: [
+      { name: 'width', value: 2 },
+      { name: 'offset', value: 2 },
+    ],
+  },
+  {
+    prefix: 'icon',
+    label: 'Icon size',
+    type: 'FLOAT',
+    scopes: ['WIDTH_HEIGHT'],
+    tokens: [
+      { name: 'xs', value: 12 },
+      { name: 'sm', value: 16 },
+      { name: 'md', value: 20 },
+      { name: 'lg', value: 24 },
+      { name: 'xl', value: 32 },
+      { name: '2xl', value: 40 },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Layout & breakpoints
 // A responsive foundation: one Number variable per grid property, resolving to a
 // different value in each breakpoint mode so it can be bound to Layout Grids.

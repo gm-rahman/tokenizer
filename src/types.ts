@@ -76,12 +76,23 @@ export interface LayoutModePayload {
   gutter: number;
 }
 
+/** One-click pass: run every generator in sequence, then optionally draw docs. */
+export interface GenerateAllPayload {
+  colors: GenerateColorsPayload;
+  typography: GenerateTypographyPayload;
+  system: GenerateSystemPayload;
+  layout: GenerateLayoutPayload;
+  /** Also draw the on-canvas "Design System" documentation page. */
+  includeDocsPage: boolean;
+}
+
 // UI iframe -> sandbox.
 export type UiMessage =
   | { type: 'generate-colors'; payload: GenerateColorsPayload }
   | { type: 'generate-typography'; payload: GenerateTypographyPayload }
   | { type: 'generate-system'; payload: GenerateSystemPayload }
   | { type: 'generate-layout'; payload: GenerateLayoutPayload }
+  | { type: 'generate-all'; payload: GenerateAllPayload }
   | { type: 'generate-text-variables' }
   | { type: 'resize'; width: number; height: number }
   | { type: 'cancel' };

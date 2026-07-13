@@ -628,6 +628,22 @@ select.control {
   font-variant-numeric: tabular-nums;
 }
 
+/* Extended token layers grid */
+.tok-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin-bottom: 6px;
+}
+.tok-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--figma-color-border);
+}
+
 /* Convert chips */
 .conv-vars {
   display: flex;
@@ -665,6 +681,33 @@ select.control {
   font-size: 11px;
   color: var(--figma-color-text-secondary);
   font-variant-numeric: tabular-nums;
+}
+.foot-docs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--figma-color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ghost {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--figma-color-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--figma-color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ghost:hover:not(:disabled) {
+  background: var(--figma-color-bg-hover);
+}
+.ghost:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 .primary {
   height: 34px;

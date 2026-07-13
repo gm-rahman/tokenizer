@@ -7,6 +7,7 @@ import {
   SPACING_SCALE,
   RADIUS_SCALE,
   ELEVATION_LEVELS,
+  SYSTEM_TOKEN_GROUPS,
   DEFAULT_SHADOW_TINT,
   DEFAULT_LAYOUT_MODES,
   LAYOUT_VARIABLES,
@@ -139,6 +140,9 @@ export function App() {
     DEFAULT_LAYOUT_MODES.map((m) => ({ ...m })),
   );
 
+  // Whole-system pass
+  const [includeDocs, setIncludeDocs] = useState(true);
+
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       const msg = event.data?.pluginMessage as PluginMessage | undefined;
@@ -197,9 +201,24 @@ export function App() {
     }
   }
 
+  function handleGenerateAll() {
+    setToast(null);
+    sendMessage({
+      type: 'generate-all',
+      payload: {
+        colors: { families, space, generateSemanticTokens: semantic },
+        typography: { fontFamily, styles },
+        system: { shadowTint, includeEffectStyles: includeEffects },
+        layout: { modes: layoutModes },
+        includeDocsPage: includeDocs,
+      },
+    });
+  }
+
   const textStyleCount = styles.reduce((n, s) => n + Math.max(1, s.weights.length), 0);
+  const systemGroupVars = SYSTEM_TOKEN_GROUPS.reduce((n, g) => n + g.tokens.length, 0);
   const systemVarCount =
-    SPACING_SCALE.length + RADIUS_SCALE.length + 1 + ELEVATION_LEVELS.length * 5;
+    SPACING_SCALE.length + RADIUS_SCALE.length + 1 + ELEVATION_LEVELS.length * 5 + systemGroupVars;
   const footNote =
     tab === 'typography'
       ? `${styles.length} styles · ${textStyleCount} text styles`
@@ -294,7 +313,14 @@ export function App() {
       <footer className="pl-foot">
         {toast && <div className={`toast ${toast.kind}`}>{toast.message}</div>}
         <div className="foot-row">
+          <label className="foot-docs" title="Draw a documentation page on the canvas">
+            <input type="checkbox" checked={includeDocs} onChange={(e) => setIncludeDocs(e.target.checked)} />
+            Docs page
+          </label>
           <span className="foot-note">{footNote}</span>
+          <button type="button" className="ghost" disabled={busy} onClick={handleGenerateAll}>
+            Generate entire system
+          </button>
           <button type="button" className="primary" disabled={busy} onClick={handleGenerate}>
             {busy ? 'Generating…' : generateLabel}
           </button>
@@ -774,9 +800,11 @@ function SystemTab(props: {
           <span className="flabel">Universal system</span>
           <div className="card">
             <p className="note">
-              One opinionated token set distilled from Stripe, Vercel, Apple HIG, and Material 3 —
-              written to a <b>Design System</b> collection: <b>{SPACING_SCALE.length}</b> spacing steps,{' '}
-              <b>{RADIUS_SCALE.length}</b> radii, and <b>{ELEVATION_LEVELS.length}</b> elevation levels.
+              One opinionated token set distilled from the W3C DTCG taxonomy, Material 3, Tailwind,
+              and Radix — written to a <b>Design System</b> collection: <b>{SPACING_SCALE.length}</b>{' '}
+              spacing steps, <b>{RADIUS_SCALE.length}</b> radii, <b>{ELEVATION_LEVELS.length}</b>{' '}
+              elevation levels, plus motion, opacity, state layers, border widths, z-index, focus, and
+              icon sizes.
             </p>
           </div>
         </div>
@@ -858,6 +886,22 @@ function SystemTab(props: {
             );
           })}
         </div>
+
+        {SYSTEM_TOKEN_GROUPS.map((g) => (
+          <div key={g.prefix}>
+            <div className="cv-sub">{g.label}</div>
+            <div className="tok-grid">
+              {g.tokens.map((t) => (
+                <div className="tok-cell" key={t.name}>
+                  <span className="sys-key">
+                    {g.prefix}/{t.name}
+                  </span>
+                  <span className="sys-val">{t.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </>
   );

@@ -14,6 +14,7 @@ import {
   RADIUS_SCALE,
   ELEVATION_LEVELS,
   elevationVarNames,
+  SYSTEM_TOKEN_GROUPS,
   LAYOUT_VARIABLES,
 } from './utils';
 import type { ExtractedTextStyle } from './utils';
@@ -24,6 +25,7 @@ import type {
   GenerateTypographyPayload,
   GenerateSystemPayload,
   GenerateLayoutPayload,
+  GenerateAllPayload,
 } from './types';
 
 figma.showUI(__html__, { width: 760, height: 640, themeColors: true });
@@ -104,7 +106,7 @@ async function findOrCreateEffectStyle(name: string): Promise<EffectStyle> {
 // (Semantic-token table + role resolution live in utils.ts, pure and tested.)
 // ---------------------------------------------------------------------------
 
-async function generateColors(payload: GenerateColorsPayload): Promise<void> {
+async function generateColors(payload: GenerateColorsPayload, silent = false): Promise<void> {
   const { families, space, generateSemanticTokens } = payload;
 
   // Resolve semantic tokens up front so progress totals and abort checks are known.
@@ -147,8 +149,10 @@ async function generateColors(payload: GenerateColorsPayload): Promise<void> {
     doSemantic && resolution.skipped.length > 0
       ? ` (skipped ${resolution.skipped.join(', ')} — no family tagged)`
       : '';
-  post({ type: 'done', message: `Color variables generated${skippedNote}` });
-  figma.notify(`✓ Color variables generated${skippedNote}`);
+  if (!silent) {
+    post({ type: 'done', message: `Color variables generated${skippedNote}` });
+    figma.notify(`✓ Color variables generated${skippedNote}`);
+  }
 }
 
 async function generateTokens(
@@ -191,7 +195,7 @@ async function loadFontWithFallback(family: string, style: string): Promise<Font
   }
 }
 
-async function generateTypography(payload: GenerateTypographyPayload): Promise<void> {
+async function generateTypography(payload: GenerateTypographyPayload, silent = false): Promise<void> {
   const { fontFamily, styles } = payload;
   const existing = await figma.getLocalTextStylesAsync();
 
@@ -223,26 +227,30 @@ async function generateTypography(payload: GenerateTypographyPayload): Promise<v
     }
   }
 
-  post({ type: 'done', message: `${total} text styles generated` });
-  figma.notify(`✓ ${total} text styles generated`);
+  if (!silent) {
+    post({ type: 'done', message: `${total} text styles generated` });
+    figma.notify(`✓ ${total} text styles generated`);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Universal design system (spacing / radii / elevation)
 // ---------------------------------------------------------------------------
 
-async function generateSystem(payload: GenerateSystemPayload): Promise<void> {
+async function generateSystem(payload: GenerateSystemPayload, silent = false): Promise<void> {
   const { shadowTint, includeEffectStyles } = payload;
   const collection = await findOrCreateCollection('Design System');
   const modeId = collection.modes[0].modeId;
   collection.renameMode(modeId, 'Base');
 
+  const groupTokenCount = SYSTEM_TOKEN_GROUPS.reduce((n, g) => n + g.tokens.length, 0);
   const total =
     SPACING_SCALE.length +
     RADIUS_SCALE.length +
     1 + // shadow tint color
     ELEVATION_LEVELS.length * 5 +
-    (includeEffectStyles ? ELEVATION_LEVELS.length : 0);
+    (includeEffectStyles ? ELEVATION_LEVELS.length : 0) +
+    groupTokenCount;
   let current = 0;
   const tick = (message: string) => post({ type: 'progress', message, current: (current += 1), total });
 
@@ -290,16 +298,30 @@ async function generateSystem(payload: GenerateSystemPayload): Promise<void> {
     }
   }
 
+  // Extended token layers: motion, opacity, state layers, border widths, z-index,
+  // focus ring, icon sizes. Each group is a flat list of same-typed variables.
+  for (const group of SYSTEM_TOKEN_GROUPS) {
+    for (const t of group.tokens) {
+      const name = `${group.prefix}/${t.name}`;
+      const v = await findOrCreateVariable(name, collection, group.type);
+      v.setValueForMode(modeId, t.value);
+      if (group.scopes.length > 0) v.scopes = group.scopes as VariableScope[];
+      tick(name);
+    }
+  }
+
   const note = includeEffectStyles ? ' + effect styles' : '';
-  post({ type: 'done', message: `Design system variables generated${note}` });
-  figma.notify(`✓ Design system variables generated${note}`);
+  if (!silent) {
+    post({ type: 'done', message: `Design system variables generated${note}` });
+    figma.notify(`✓ Design system variables generated${note}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Layout & breakpoints
 // ---------------------------------------------------------------------------
 
-async function generateLayout(payload: GenerateLayoutPayload): Promise<void> {
+async function generateLayout(payload: GenerateLayoutPayload, silent = false): Promise<void> {
   const { modes } = payload;
   const collection = await findOrCreateCollection('Layout & Breakpoints');
   const modeIds = ensureModes(collection, modes.map((m) => m.name));
@@ -314,8 +336,10 @@ async function generateLayout(payload: GenerateLayoutPayload): Promise<void> {
   }
 
   const modeNames = modes.map((m) => m.name).join(' / ');
-  post({ type: 'done', message: `Layout variables generated (${modeNames})` });
-  figma.notify(`✓ Layout & breakpoint variables generated`);
+  if (!silent) {
+    post({ type: 'done', message: `Layout variables generated (${modeNames})` });
+    figma.notify(`✓ Layout & breakpoint variables generated`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -370,6 +394,175 @@ async function generateTextVariables(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// One-click: generate the entire system, then draw the documentation page
+// ---------------------------------------------------------------------------
+
+async function generateAll(payload: GenerateAllPayload): Promise<void> {
+  await generateColors(payload.colors, true);
+  await generateTypography(payload.typography, true);
+  await generateSystem(payload.system, true);
+  await generateLayout(payload.layout, true);
+  if (payload.includeDocsPage) {
+    post({ type: 'progress', message: 'Documentation page', current: 1, total: 1 });
+    await generateDocsPage(payload);
+  }
+  post({ type: 'done', message: 'Entire design system generated' });
+  figma.notify('✓ Entire design system generated');
+}
+
+// ---------------------------------------------------------------------------
+// On-canvas documentation page
+// Drawn from the in-memory payload (not read back from variables) so there is no
+// alias resolution to do. Find-or-updates a "Design System" page and replaces its
+// own reference frame on re-run, so it never duplicates.
+// ---------------------------------------------------------------------------
+
+const DOC_FRAME_NAME = 'Design System Reference';
+const INK: RGB01 = { r: 0.1, g: 0.11, b: 0.16 };
+const MUTED: RGB01 = { r: 0.42, g: 0.45, b: 0.52 };
+
+interface RGB01 {
+  r: number;
+  g: number;
+  b: number;
+}
+
+function rgb01(hex: string): RGB01 {
+  const { r, g, b } = hexToRgb(hex);
+  return { r: r / 255, g: g / 255, b: b / 255 };
+}
+
+async function loadDocFonts(): Promise<{ regular: FontName; bold: FontName }> {
+  for (const family of ['Inter', 'Roboto', 'Arial', 'Helvetica Neue']) {
+    try {
+      const regular: FontName = { family, style: 'Regular' };
+      await figma.loadFontAsync(regular);
+      let bold: FontName = regular;
+      try {
+        const b: FontName = { family, style: 'Bold' };
+        await figma.loadFontAsync(b);
+        bold = b;
+      } catch {
+        /* keep regular for bold */
+      }
+      return { regular, bold };
+    } catch {
+      /* try next family */
+    }
+  }
+  const all = await figma.listAvailableFontsAsync();
+  const f = all[0].fontName;
+  await figma.loadFontAsync(f);
+  return { regular: f, bold: f };
+}
+
+async function generateDocsPage(payload: GenerateAllPayload): Promise<void> {
+  const { regular, bold } = await loadDocFonts();
+
+  const text = (chars: string, font: FontName, size: number, color: RGB01 = INK): TextNode => {
+    const t = figma.createText();
+    t.fontName = font;
+    t.characters = chars;
+    t.fontSize = size;
+    t.fills = [{ type: 'SOLID', color }];
+    return t;
+  };
+  const swatch = (w: number, h: number, color: RGB01, corner = 4): RectangleNode => {
+    const r = figma.createRectangle();
+    r.resize(w, h);
+    r.fills = [{ type: 'SOLID', color }];
+    r.cornerRadius = corner;
+    return r;
+  };
+  const stack = (
+    dir: 'VERTICAL' | 'HORIZONTAL',
+    gap: number,
+    children: SceneNode[],
+    align: 'MIN' | 'CENTER' = 'MIN',
+  ): FrameNode => {
+    const f = figma.createFrame();
+    f.layoutMode = dir;
+    f.itemSpacing = gap;
+    f.primaryAxisSizingMode = 'AUTO';
+    f.counterAxisSizingMode = 'AUTO';
+    f.counterAxisAlignItems = align;
+    f.fills = [];
+    for (const c of children) f.appendChild(c);
+    return f;
+  };
+  const section = (title: string, body: SceneNode): FrameNode =>
+    stack('VERTICAL', 14, [text(title, bold, 18), body]);
+
+  // --- Colors: family ramps ---
+  const colorRows = payload.colors.families.map((fam) => {
+    const steps = generateScale(fam.baseHex, payload.colors.space);
+    const ramp = stack('HORIZONTAL', 2, steps.map((s) => swatch(30, 44, rgb01(s.hex))));
+    const label = text(`${fam.name}${fam.role !== 'none' ? `  ·  ${fam.role}` : ''}`, regular, 12, MUTED);
+    return stack('VERTICAL', 6, [label, ramp]);
+  });
+
+  // --- Semantic tokens: Light/Dark pairs ---
+  const resolution = resolveSemanticTokens(payload.colors.families);
+  const hexAt = (family: string, step: number): string =>
+    generateScale(payload.colors.families.find((f) => f.name === family)!.baseHex, payload.colors.space).find(
+      (s) => s.step === step,
+    )?.hex ?? '#888888';
+  const tokenRows = resolution.plan.map((t) => {
+    const pair = stack('HORIZONTAL', 0, [
+      swatch(22, 26, rgb01(hexAt(t.lightFamily, t.lightStep)), 0),
+      swatch(22, 26, rgb01(hexAt(t.darkFamily, t.darkStep)), 0),
+    ]);
+    return stack('HORIZONTAL', 10, [pair, text(t.token, regular, 12)], 'CENTER');
+  });
+
+  // --- Type specimens ---
+  const typeRows = payload.typography.styles.map((s) => {
+    const size = Math.min(s.fontSize, 72);
+    const line = text(s.name, bold, size);
+    const meta = text(`${s.fontSize}px · ${s.font || payload.typography.fontFamily}`, regular, 11, MUTED);
+    return stack('VERTICAL', 4, [line, meta]);
+  });
+
+  // --- Extended token layers ---
+  const layerRows = SYSTEM_TOKEN_GROUPS.map((g) => {
+    const rows = g.tokens.map((tk) =>
+      stack('HORIZONTAL', 8, [text(`${g.prefix}/${tk.name}`, regular, 12), text(String(tk.value), regular, 12, MUTED)]),
+    );
+    return stack('VERTICAL', 8, [text(g.label, bold, 13), stack('VERTICAL', 4, rows)]);
+  });
+
+  const root = figma.createFrame();
+  root.name = DOC_FRAME_NAME;
+  root.layoutMode = 'VERTICAL';
+  root.itemSpacing = 40;
+  root.paddingTop = root.paddingBottom = root.paddingLeft = root.paddingRight = 48;
+  root.primaryAxisSizingMode = 'AUTO';
+  root.counterAxisSizingMode = 'AUTO';
+  root.fills = [{ type: 'SOLID', color: rgb01('#ffffff') }];
+  root.cornerRadius = 16;
+
+  root.appendChild(text('Design System', bold, 34));
+  root.appendChild(section('Colors', stack('VERTICAL', 16, colorRows)));
+  if (tokenRows.length) root.appendChild(section('Semantic tokens · Light / Dark', stack('VERTICAL', 8, tokenRows)));
+  root.appendChild(section('Typography', stack('VERTICAL', 16, typeRows)));
+  root.appendChild(section('Foundations', stack('HORIZONTAL', 40, layerRows)));
+
+  // Find-or-create the page, drop the previous reference frame, and add the new one.
+  await figma.loadAllPagesAsync();
+  let page = figma.root.children.find((p) => p.name === 'Design System');
+  if (!page) {
+    page = figma.createPage();
+    page.name = 'Design System';
+  }
+  for (const child of page.children) {
+    if (child.name === DOC_FRAME_NAME) child.remove();
+  }
+  page.appendChild(root);
+  figma.currentPage = page;
+  figma.viewport.scrollAndZoomIntoView([root]);
+}
+
+// ---------------------------------------------------------------------------
 // Message dispatch
 // ---------------------------------------------------------------------------
 
@@ -383,6 +576,8 @@ figma.ui.onmessage = async (msg: UiMessage) => {
       await generateSystem(msg.payload);
     } else if (msg.type === 'generate-layout') {
       await generateLayout(msg.payload);
+    } else if (msg.type === 'generate-all') {
+      await generateAll(msg.payload);
     } else if (msg.type === 'generate-text-variables') {
       await generateTextVariables();
     } else if (msg.type === 'resize') {

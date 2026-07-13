@@ -21,11 +21,27 @@ creation of a design system's foundations directly inside a Figma file:
   emit several weights as separate styles (`Body` → `Body/Regular`, `Body/Bold`),
   optionally with a per-style font. All scale math runs in the UI; the sandbox
   writes the resolved values via the **Text Styles API**.
+- **Universal foundation tokens** — a `Design System` collection (`Base` mode)
+  with spacing, radii, and elevation, plus the extended layers modeled as pure
+  data in `SYSTEM_TOKEN_GROUPS`: motion (`duration/*` FLOAT, `easing/*` STRING
+  `cubic-bezier`), `opacity/*` + `state/*` (OPACITY scope), `stroke/*` border
+  widths, `z/*`, `focus/*`, and `icon/*`. Written by `generateSystem`.
+- **Layout & breakpoints** — a `Layout & Breakpoints` collection, one mode per
+  breakpoint, Number vars for grid width/columns/margin/gutter.
+- **One-click "Generate entire system"** — `generate-all` runs every generator in
+  sequence (each supports a `silent` flag) and then `generateDocsPage` draws an
+  on-canvas **"Design System"** documentation page from the in-memory payload
+  (find-or-replaces its own `Design System Reference` frame).
+- **Convert** — local Text Styles → a `Typography Variables` collection.
 
-The plugin UI is a Figma-native React app with **Typography** and **Colors** tabs
-in a two-column layout (controls left, live preview right). The sandbox posts the
-installed font list (`figma.listAvailableFontsAsync`) so the UI can offer font
-dropdowns.
+The plugin UI is a Figma-native React app with **Typography / Colors / System /
+Layout / Convert** tabs in a two-column layout (controls left, live preview
+right). The sandbox posts the installed font list
+(`figma.listAvailableFontsAsync`) so the UI can offer font dropdowns.
+
+**Roadmap (Phase 2, not yet built):** a `Components` tab generating Figma
+component sets (Button, Input, Checkbox, …) wired to the variables above. See
+`docs/superpowers/specs/2026-07-14-whole-design-system-design.md`.
 
 ## Commands
 

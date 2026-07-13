@@ -8,6 +8,7 @@ import {
   SPACING_SCALE,
   RADIUS_SCALE,
   ELEVATION_LEVELS,
+  SYSTEM_TOKEN_GROUPS,
   DEFAULT_LAYOUT_MODES,
 } from './utils';
 import type { ExtractedTextStyle } from './utils';
@@ -194,6 +195,45 @@ describe('universal system data', () => {
       'elevation/2/spread',
       'elevation/2/opacity',
     ]);
+  });
+});
+
+describe('extended token layers', () => {
+  test('ships the expected token groups', () => {
+    expect(SYSTEM_TOKEN_GROUPS.map((g) => g.prefix)).toEqual([
+      'duration',
+      'easing',
+      'opacity',
+      'state',
+      'stroke',
+      'z',
+      'focus',
+      'icon',
+    ]);
+  });
+
+  test('every variable name is unique across all groups', () => {
+    const names = SYSTEM_TOKEN_GROUPS.flatMap((g) => g.tokens.map((t) => `${g.prefix}/${t.name}`));
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  test('easing values are cubic-bezier strings on a STRING group', () => {
+    const easing = SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === 'easing')!;
+    expect(easing.type).toBe('STRING');
+    expect(easing.tokens.every((t) => /^cubic-bezier\(/.test(String(t.value)))).toBe(true);
+  });
+
+  test('durations ascend', () => {
+    const durations = SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === 'duration')!.tokens.map(
+      (t) => t.value as number,
+    );
+    expect([...durations].sort((a, b) => a - b)).toEqual(durations);
+  });
+
+  test('opacity-scoped groups use the OPACITY scope', () => {
+    for (const prefix of ['opacity', 'state']) {
+      expect(SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === prefix)!.scopes).toContain('OPACITY');
+    }
   });
 });
 
