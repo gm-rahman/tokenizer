@@ -644,6 +644,36 @@ select.control {
   border-bottom: 1px solid var(--figma-color-border);
 }
 
+/* Components list */
+.comp-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--figma-color-border);
+}
+.comp-row:last-child {
+  border-bottom: 0;
+}
+.comp-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+}
+.comp-desc {
+  font-size: 10.5px;
+  color: var(--figma-color-text-secondary);
+  text-align: right;
+}
+.comp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 /* Convert chips */
 .conv-vars {
   display: flex;

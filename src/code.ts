@@ -16,8 +16,15 @@ import {
   elevationVarNames,
   SYSTEM_TOKEN_GROUPS,
   LAYOUT_VARIABLES,
+  BUTTON_VARIANTS,
+  BUTTON_SIZES,
+  BADGE_COLORS,
+  buttonFillToken,
+  buttonTextToken,
+  badgeFillToken,
+  badgeTextToken,
 } from './utils';
-import type { ExtractedTextStyle } from './utils';
+import type { ExtractedTextStyle, ButtonVariant, BadgeColor } from './utils';
 import type {
   UiMessage,
   PluginMessage,
@@ -26,6 +33,7 @@ import type {
   GenerateSystemPayload,
   GenerateLayoutPayload,
   GenerateAllPayload,
+  GenerateComponentsPayload,
 } from './types';
 
 figma.showUI(__html__, { width: 760, height: 640, themeColors: true });
@@ -563,6 +571,365 @@ async function generateDocsPage(payload: GenerateAllPayload): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Component library (Phase 2)
+// Builds starter Figma components wired to the generated variables. Each token
+// bind falls back to a literal value when the variable is absent, so components
+// still build if tokens haven't been generated yet. All node construction is
+// defensive and per-component, so one failure never aborts the whole pass.
+// ---------------------------------------------------------------------------
+
+const COMP_BOARD_NAME = 'Component Library';
+
+// Literal colors used only when the matching semantic variable does not exist.
+const FALLBACK_HEX: Record<string, string> = {
+  'action/primary': '#2563eb',
+  'action/secondary': '#e2e8f0',
+  danger: '#dc2626',
+  success: '#16a34a',
+  warning: '#f59e0b',
+  'text/on-accent': '#ffffff',
+  'text/primary': '#0f172a',
+  'text/secondary': '#475569',
+  'bg/surface': '#ffffff',
+  'bg/muted': '#e2e8f0',
+  'border/default': '#cbd5e1',
+  'border/strong': '#94a3b8',
+};
+const fallbackHex = (name: string): string => FALLBACK_HEX[name] ?? '#888888';
+
+const SPACE_PX: Record<string, number> = Object.fromEntries(SPACING_SCALE.map((s) => [s.name, s.value]));
+const spacePx = (name: string): number => SPACE_PX[name] ?? 8;
+
+type AutoLayoutNode = ComponentNode | FrameNode;
+
+async function buildVarIndex(): Promise<Map<string, Variable>> {
+  const index = new Map<string, Variable>();
+  const collections = await figma.variables.getLocalVariableCollectionsAsync();
+  for (const collection of collections) {
+    for (const id of collection.variableIds) {
+      const v = await figma.variables.getVariableByIdAsync(id);
+      if (v) index.set(v.name, v);
+    }
+  }
+  return index;
+}
+
+function fillPaint(index: Map<string, Variable>, token: string): Paint {
+  const base: SolidPaint = { type: 'SOLID', color: rgb01(fallbackHex(token)) };
+  const v = index.get(token);
+  return v ? figma.variables.setBoundVariableForPaint(base, 'color', v) : base;
+}
+
+function pad(node: AutoLayoutNode, index: Map<string, Variable>, xTok: string, yTok: string): void {
+  const vx = index.get(`space/${xTok}`);
+  const vy = index.get(`space/${yTok}`);
+  if (vx) {
+    node.setBoundVariable('paddingLeft', vx);
+    node.setBoundVariable('paddingRight', vx);
+  } else {
+    node.paddingLeft = node.paddingRight = spacePx(xTok);
+  }
+  if (vy) {
+    node.setBoundVariable('paddingTop', vy);
+    node.setBoundVariable('paddingBottom', vy);
+  } else {
+    node.paddingTop = node.paddingBottom = spacePx(yTok);
+  }
+}
+
+function gap(node: AutoLayoutNode, index: Map<string, Variable>, tok: string): void {
+  const v = index.get(`space/${tok}`);
+  if (v) node.setBoundVariable('itemSpacing', v);
+  else node.itemSpacing = spacePx(tok);
+}
+
+const CORNER_FIELDS = ['topLeftRadius', 'topRightRadius', 'bottomLeftRadius', 'bottomRightRadius'] as const;
+
+function radius(node: AutoLayoutNode, index: Map<string, Variable>, name: string, fallback: number): void {
+  const v = index.get(`radius/${name}`);
+  if (v) for (const f of CORNER_FIELDS) node.setBoundVariable(f, v);
+  else node.cornerRadius = fallback;
+}
+
+function strokeWidth(node: AutoLayoutNode, index: Map<string, Variable>, name: string, fallback: number): void {
+  const v = index.get(`stroke/${name}`);
+  if (v) node.setBoundVariable('strokeWeight', v);
+  else node.strokeWeight = fallback;
+}
+
+async function makeTextNode(
+  chars: string,
+  styleName: string,
+  styles: TextStyle[],
+  fallbackFont: FontName,
+  fallbackSize: number,
+  fill: Paint,
+): Promise<TextNode> {
+  const t = figma.createText();
+  const style = styleName ? styles.find((s) => s.name === styleName) : undefined;
+  let font = fallbackFont;
+  if (style) {
+    try {
+      await figma.loadFontAsync(style.fontName);
+      font = style.fontName;
+    } catch {
+      /* keep fallback */
+    }
+  }
+  t.fontName = font;
+  t.characters = chars;
+  if (style) {
+    try {
+      await t.setTextStyleIdAsync(style.id);
+    } catch {
+      /* leave literal size */
+    }
+  } else {
+    t.fontSize = fallbackSize;
+  }
+  t.fills = [fill];
+  return t;
+}
+
+async function buildButton(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const variant of BUTTON_VARIANTS) {
+    for (const size of BUTTON_SIZES) {
+      const c = figma.createComponent();
+      c.name = `Variant=${variant}, Size=${size.name}`;
+      c.layoutMode = 'HORIZONTAL';
+      c.primaryAxisSizingMode = 'AUTO';
+      c.counterAxisSizingMode = 'AUTO';
+      c.primaryAxisAlignItems = 'CENTER';
+      c.counterAxisAlignItems = 'CENTER';
+      pad(c, index, size.padX, size.padY);
+      gap(c, index, size.gap);
+      radius(c, index, 'md', 8);
+      const fillToken = buttonFillToken(variant as ButtonVariant);
+      c.fills = fillToken ? [fillPaint(index, fillToken)] : [];
+      const label = await makeTextNode('Button', 'Body', styles, font, size.font, fillPaint(index, buttonTextToken(variant as ButtonVariant)));
+      c.appendChild(label);
+      nodes.push(c);
+    }
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Button';
+  return set;
+}
+
+async function buildBadge(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const color of BADGE_COLORS) {
+    const c = figma.createComponent();
+    c.name = `Color=${color}`;
+    c.layoutMode = 'HORIZONTAL';
+    c.primaryAxisSizingMode = 'AUTO';
+    c.counterAxisSizingMode = 'AUTO';
+    c.primaryAxisAlignItems = 'CENTER';
+    c.counterAxisAlignItems = 'CENTER';
+    pad(c, index, '3', '1');
+    radius(c, index, 'full', 9999);
+    c.fills = [fillPaint(index, badgeFillToken(color as BadgeColor))];
+    const label = await makeTextNode('Badge', 'Label', styles, font, 11, fillPaint(index, badgeTextToken(color as BadgeColor)));
+    c.appendChild(label);
+    nodes.push(c);
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Badge';
+  return set;
+}
+
+async function buildInput(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Input';
+  c.layoutMode = 'HORIZONTAL';
+  c.counterAxisSizingMode = 'AUTO';
+  c.counterAxisAlignItems = 'CENTER';
+  pad(c, index, '4', '3');
+  radius(c, index, 'md', 8);
+  c.fills = [fillPaint(index, 'bg/surface')];
+  c.strokes = [fillPaint(index, 'border/default')];
+  c.strokeAlign = 'INSIDE';
+  strokeWidth(c, index, 'sm', 1);
+  const placeholder = await makeTextNode('Placeholder', 'Body', styles, font, 14, fillPaint(index, 'text/secondary'));
+  c.appendChild(placeholder);
+  c.primaryAxisSizingMode = 'FIXED';
+  c.resize(240, Math.max(1, c.height));
+  return c;
+}
+
+async function buildCard(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Card';
+  c.layoutMode = 'VERTICAL';
+  c.counterAxisSizingMode = 'FIXED';
+  gap(c, index, '3');
+  pad(c, index, '6', '6');
+  radius(c, index, 'lg', 12);
+  c.fills = [fillPaint(index, 'bg/surface')];
+  c.strokes = [fillPaint(index, 'border/default')];
+  c.strokeAlign = 'INSIDE';
+  strokeWidth(c, index, 'sm', 1);
+  const effectStyles = await figma.getLocalEffectStylesAsync();
+  const elevation = effectStyles.find((s) => s.name === 'elevation/2');
+  if (elevation) await c.setEffectStyleIdAsync(elevation.id);
+  const title = await makeTextNode('Card title', 'Heading 4', styles, font, 18, fillPaint(index, 'text/primary'));
+  const body = await makeTextNode(
+    'Supporting copy that describes the card contents in a sentence or two.',
+    'Body',
+    styles,
+    font,
+    14,
+    fillPaint(index, 'text/secondary'),
+  );
+  c.appendChild(title);
+  c.appendChild(body);
+  c.resize(280, Math.max(1, c.height));
+  // layoutSizing can only be set once the node is a child of the auto-layout frame.
+  body.layoutSizingHorizontal = 'FILL';
+  return c;
+}
+
+async function buildCheckbox(index: Map<string, Variable>, font: FontName): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const checked of [false, true]) {
+    const c = figma.createComponent();
+    c.name = `Checked=${checked}`;
+    c.layoutMode = 'HORIZONTAL';
+    c.primaryAxisSizingMode = 'FIXED';
+    c.counterAxisSizingMode = 'FIXED';
+    c.primaryAxisAlignItems = 'CENTER';
+    c.counterAxisAlignItems = 'CENTER';
+    c.resize(20, 20);
+    radius(c, index, 'sm', 6);
+    c.fills = [fillPaint(index, checked ? 'action/primary' : 'bg/surface')];
+    c.strokes = [fillPaint(index, 'border/strong')];
+    c.strokeAlign = 'INSIDE';
+    strokeWidth(c, index, 'sm', 1);
+    if (checked) {
+      const tick = await makeTextNode('✓', '', [], font, 13, fillPaint(index, 'text/on-accent'));
+      c.appendChild(tick);
+    }
+    nodes.push(c);
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Checkbox';
+  return set;
+}
+
+async function buildSwitch(index: Map<string, Variable>): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const on of [false, true]) {
+    const c = figma.createComponent();
+    c.name = `On=${on}`;
+    c.layoutMode = 'HORIZONTAL';
+    c.primaryAxisSizingMode = 'FIXED';
+    c.counterAxisSizingMode = 'FIXED';
+    c.primaryAxisAlignItems = on ? 'MAX' : 'MIN';
+    c.counterAxisAlignItems = 'CENTER';
+    c.resize(36, 20);
+    c.paddingLeft = c.paddingRight = c.paddingTop = c.paddingBottom = 2;
+    radius(c, index, 'full', 9999);
+    c.fills = [fillPaint(index, on ? 'action/primary' : 'bg/muted')];
+    const knob = figma.createEllipse();
+    knob.resize(16, 16);
+    knob.fills = [{ type: 'SOLID', color: rgb01('#ffffff') }];
+    c.appendChild(knob);
+    nodes.push(c);
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Switch';
+  return set;
+}
+
+async function generateComponents(payload: GenerateComponentsPayload): Promise<void> {
+  const index = await buildVarIndex();
+  const styles = await figma.getLocalTextStylesAsync();
+  const { regular } = await loadDocFonts();
+
+  const builders: Record<string, () => Promise<SceneNode>> = {
+    button: () => buildButton(index, styles, regular),
+    badge: () => buildBadge(index, styles, regular),
+    input: () => buildInput(index, styles, regular),
+    card: () => buildCard(index, styles, regular),
+    checkbox: () => buildCheckbox(index, regular),
+    switch: () => buildSwitch(index),
+  };
+
+  const built: { label: string; node: SceneNode }[] = [];
+  const failed: string[] = [];
+  const total = payload.components.length;
+  let current = 0;
+  for (const key of payload.components) {
+    const build = builders[key];
+    if (!build) continue;
+    try {
+      built.push({ label: key, node: await build() });
+    } catch {
+      failed.push(key);
+    }
+    post({ type: 'progress', message: `Component ${key}`, current: (current += 1), total });
+  }
+
+  // Place everything on a "Components" page in a labelled board; replace on re-run.
+  await figma.loadAllPagesAsync();
+  let page = figma.root.children.find((p) => p.name === 'Components');
+  if (!page) {
+    page = figma.createPage();
+    page.name = 'Components';
+  }
+  for (const child of page.children) {
+    if (child.name === COMP_BOARD_NAME) child.remove();
+  }
+
+  const board = figma.createFrame();
+  board.name = COMP_BOARD_NAME;
+  board.layoutMode = 'VERTICAL';
+  board.itemSpacing = 48;
+  board.paddingTop = board.paddingBottom = board.paddingLeft = board.paddingRight = 64;
+  board.primaryAxisSizingMode = 'AUTO';
+  board.counterAxisSizingMode = 'AUTO';
+  board.fills = [{ type: 'SOLID', color: rgb01('#f8fafc') }];
+
+  board.appendChild(await makeTextNode('Components', '', styles, regular, 32, { type: 'SOLID', color: INK }));
+  for (const { label, node } of built) {
+    const group = figma.createFrame();
+    group.name = label;
+    group.layoutMode = 'VERTICAL';
+    group.itemSpacing = 12;
+    group.primaryAxisSizingMode = 'AUTO';
+    group.counterAxisSizingMode = 'AUTO';
+    group.fills = [];
+    group.appendChild(await makeTextNode(label, '', styles, regular, 14, { type: 'SOLID', color: MUTED }));
+    group.appendChild(node);
+    board.appendChild(group);
+  }
+  page.appendChild(board);
+  figma.currentPage = page;
+  figma.viewport.scrollAndZoomIntoView([board]);
+
+  const note = failed.length ? ` (failed: ${failed.join(', ')})` : '';
+  post({ type: 'done', message: `${built.length} components generated${note}` });
+  figma.notify(`✓ ${built.length} components generated${note}`);
+}
+
+// ---------------------------------------------------------------------------
 // Message dispatch
 // ---------------------------------------------------------------------------
 
@@ -578,6 +945,8 @@ figma.ui.onmessage = async (msg: UiMessage) => {
       await generateLayout(msg.payload);
     } else if (msg.type === 'generate-all') {
       await generateAll(msg.payload);
+    } else if (msg.type === 'generate-components') {
+      await generateComponents(msg.payload);
     } else if (msg.type === 'generate-text-variables') {
       await generateTextVariables();
     } else if (msg.type === 'resize') {

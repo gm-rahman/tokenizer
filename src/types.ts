@@ -76,6 +76,11 @@ export interface LayoutModePayload {
   gutter: number;
 }
 
+/** Build the starter component library. `components` = COMPONENT_LIBRARY keys. */
+export interface GenerateComponentsPayload {
+  components: string[];
+}
+
 /** One-click pass: run every generator in sequence, then optionally draw docs. */
 export interface GenerateAllPayload {
   colors: GenerateColorsPayload;
@@ -93,6 +98,7 @@ export type UiMessage =
   | { type: 'generate-system'; payload: GenerateSystemPayload }
   | { type: 'generate-layout'; payload: GenerateLayoutPayload }
   | { type: 'generate-all'; payload: GenerateAllPayload }
+  | { type: 'generate-components'; payload: GenerateComponentsPayload }
   | { type: 'generate-text-variables' }
   | { type: 'resize'; width: number; height: number }
   | { type: 'cancel' };

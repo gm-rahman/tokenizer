@@ -696,6 +696,79 @@ export const LAYOUT_VARIABLES: { name: string; key: keyof Omit<LayoutMode, 'name
 ];
 
 // ---------------------------------------------------------------------------
+// Component library (Phase 2)
+// Metadata describing the starter components the sandbox builds as Figma
+// component sets, each wired to the variables generated above (fills → semantic
+// color tokens, padding/gap → space/*, corner → radius/*, border → stroke/*).
+// Kept as pure data so the UI can list/preview them and the builders stay
+// data-driven; all Figma node construction lives in code.ts.
+// ---------------------------------------------------------------------------
+
+export interface ComponentInfo {
+  key: string;
+  label: string;
+  /** One-line description of what it is and which tokens it binds. */
+  desc: string;
+}
+
+export const COMPONENT_LIBRARY: ComponentInfo[] = [
+  { key: 'button', label: 'Button', desc: '4 variants × 3 sizes · action / space / radius' },
+  { key: 'badge', label: 'Badge', desc: '5 color variants · radius/full' },
+  { key: 'input', label: 'Input', desc: 'surface + border + stroke width' },
+  { key: 'card', label: 'Card', desc: 'surface · border · radius/lg · elevation/2' },
+  { key: 'checkbox', label: 'Checkbox', desc: 'checked / unchecked' },
+  { key: 'switch', label: 'Switch', desc: 'on / off' },
+];
+
+export const COMPONENT_KEYS = COMPONENT_LIBRARY.map((c) => c.key);
+
+export const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
+export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
+
+export interface ButtonSize {
+  name: string;
+  /** space/* token suffix for horizontal / vertical padding and gap. */
+  padX: string;
+  padY: string;
+  gap: string;
+  /** Literal font size fallback when no text style is applied. */
+  font: number;
+}
+
+export const BUTTON_SIZES: ButtonSize[] = [
+  { name: 'sm', padX: '3', padY: '2', gap: '2', font: 12 },
+  { name: 'md', padX: '5', padY: '3', gap: '3', font: 14 },
+  { name: 'lg', padX: '6', padY: '4', gap: '3', font: 16 },
+];
+
+export const BADGE_COLORS = ['neutral', 'primary', 'success', 'warning', 'danger'] as const;
+export type BadgeColor = (typeof BADGE_COLORS)[number];
+
+/** The semantic color token a button variant fills with (null = transparent/ghost). */
+export function buttonFillToken(variant: ButtonVariant): string | null {
+  if (variant === 'primary') return 'action/primary';
+  if (variant === 'secondary') return 'action/secondary';
+  if (variant === 'danger') return 'danger';
+  return null; // ghost
+}
+
+/** The semantic color token a button variant's label uses. */
+export function buttonTextToken(variant: ButtonVariant): string {
+  if (variant === 'primary' || variant === 'danger') return 'text/on-accent';
+  if (variant === 'ghost') return 'action/primary';
+  return 'text/primary';
+}
+
+/** The fill token for a badge color (neutral reads as a quiet muted chip). */
+export function badgeFillToken(color: BadgeColor): string {
+  return color === 'neutral' ? 'bg/muted' : color === 'primary' ? 'action/primary' : color;
+}
+
+export function badgeTextToken(color: BadgeColor): string {
+  return color === 'neutral' ? 'text/primary' : 'text/on-accent';
+}
+
+// ---------------------------------------------------------------------------
 // Text styles -> variables
 // Expand a text style's resolved values into the Number / String variables that
 // make up its entry in the Typography Variables collection. Pure so the mapping

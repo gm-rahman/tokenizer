@@ -34,13 +34,21 @@ creation of a design system's foundations directly inside a Figma file:
   (find-or-replaces its own `Design System Reference` frame).
 - **Convert** — local Text Styles → a `Typography Variables` collection.
 
+- **Component library** — a `Components` tab builds starter Figma component sets
+  on a `Components` page, wired to the variables above (fills → semantic color
+  tokens, padding/gap → `space/*`, corner → `radius/*`, border → `stroke/*`), with
+  a literal-value fallback when a token is absent. Metadata is pure data in
+  `COMPONENT_LIBRARY`; builders live in `code.ts` (`buildButton`, `buildBadge`,
+  `buildInput`, `buildCard`, `buildCheckbox`, `buildSwitch`), each defensive so one
+  failure never aborts the pass. Re-run replaces the `Component Library` board.
+
 The plugin UI is a Figma-native React app with **Typography / Colors / System /
-Layout / Convert** tabs in a two-column layout (controls left, live preview
-right). The sandbox posts the installed font list
+Layout / Components / Convert** tabs in a two-column layout (controls left, live
+preview right). The sandbox posts the installed font list
 (`figma.listAvailableFontsAsync`) so the UI can offer font dropdowns.
 
-**Roadmap (Phase 2, not yet built):** a `Components` tab generating Figma
-component sets (Button, Input, Checkbox, …) wired to the variables above. See
+**Roadmap:** more components (Select, Radio, Textarea, Alert, Avatar, Tag,
+Tooltip, Form field). See
 `docs/superpowers/specs/2026-07-14-whole-design-system-design.md`.
 
 ## Commands

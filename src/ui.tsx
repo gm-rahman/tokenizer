@@ -11,6 +11,8 @@ import {
   DEFAULT_SHADOW_TINT,
   DEFAULT_LAYOUT_MODES,
   LAYOUT_VARIABLES,
+  COMPONENT_LIBRARY,
+  COMPONENT_KEYS,
   textStyleVariables,
 } from './utils';
 import type { LayoutMode } from './utils';
@@ -23,7 +25,7 @@ import type {
   TypeStyle,
 } from './types';
 
-type Tab = 'typography' | 'colors' | 'system' | 'layout' | 'convert';
+type Tab = 'typography' | 'colors' | 'system' | 'layout' | 'components' | 'convert';
 
 function sendMessage(msg: UiMessage): void {
   window.parent.postMessage({ pluginMessage: msg }, '*');
@@ -143,6 +145,9 @@ export function App() {
   // Whole-system pass
   const [includeDocs, setIncludeDocs] = useState(true);
 
+  // Components state — which of the starter set to build
+  const [components, setComponents] = useState<string[]>(COMPONENT_KEYS);
+
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       const msg = event.data?.pluginMessage as PluginMessage | undefined;
@@ -194,6 +199,8 @@ export function App() {
       sendMessage({ type: 'generate-system', payload: { shadowTint, includeEffectStyles: includeEffects } });
     } else if (tab === 'layout') {
       sendMessage({ type: 'generate-layout', payload: { modes: layoutModes } });
+    } else if (tab === 'components') {
+      sendMessage({ type: 'generate-components', payload: { components } });
     } else if (tab === 'convert') {
       sendMessage({ type: 'generate-text-variables' });
     } else {
@@ -230,7 +237,9 @@ export function App() {
           ? `${systemVarCount} variables${includeEffects ? ` · ${ELEVATION_LEVELS.length} effect styles` : ''}`
           : tab === 'layout'
             ? `${layoutModes.length} modes · ${LAYOUT_VARIABLES.length} grid variables`
-            : `${textStyleNames.length} text styles · ${textStyleNames.length * 6} variables`;
+            : tab === 'components'
+              ? `${components.length} of ${COMPONENT_LIBRARY.length} components`
+              : `${textStyleNames.length} text styles · ${textStyleNames.length * 6} variables`;
 
   const generateLabel =
     tab === 'typography'
@@ -241,7 +250,9 @@ export function App() {
           ? 'Generate design system'
           : tab === 'layout'
             ? 'Generate layout variables'
-            : 'Convert text styles';
+            : tab === 'components'
+              ? 'Generate components'
+              : 'Convert text styles';
 
   return (
     <div className="app">
@@ -257,6 +268,7 @@ export function App() {
               ['colors', 'Colors'],
               ['system', 'System'],
               ['layout', 'Layout'],
+              ['components', 'Components'],
               ['convert', 'Convert'],
             ] as [Tab, string][]
           ).map(([id, label]) => (
@@ -307,6 +319,7 @@ export function App() {
           />
         )}
         {tab === 'layout' && <LayoutTab modes={layoutModes} setModes={setLayoutModes} />}
+        {tab === 'components' && <ComponentsTab selected={components} setSelected={setComponents} />}
         {tab === 'convert' && <ConvertTab names={textStyleNames} />}
       </main>
 
@@ -997,6 +1010,68 @@ function LayoutTab(props: {
             </div>
           </div>
         ))}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Components (Phase 2 starter library)
+// ---------------------------------------------------------------------------
+
+function ComponentsTab(props: {
+  selected: string[];
+  setSelected: React.Dispatch<React.SetStateAction<string[]>>;
+}) {
+  const { selected, setSelected } = props;
+  function toggle(key: string) {
+    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
+  return (
+    <>
+      <div className="controls">
+        <div className="field">
+          <span className="flabel">Component library</span>
+          <div className="card">
+            <p className="note">
+              Builds Figma component sets on a <b>Components</b> page, wired to the variables you
+              generated — fills, padding, radius, and border widths bind to your tokens (and fall
+              back to literal values when a token is missing). Re-running replaces the board.
+            </p>
+          </div>
+        </div>
+
+        <div className="field">
+          <span className="flabel">Include</span>
+          <div className="card">
+            {COMPONENT_LIBRARY.map((c) => (
+              <label className="comp-row" key={c.key}>
+                <input type="checkbox" checked={selected.includes(c.key)} onChange={() => toggle(c.key)} />
+                <span className="comp-name">{c.label}</span>
+                <span className="comp-desc">{c.desc}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="preview">
+        <div className="pv-head">
+          <span className="flabel">Preview</span>
+          <em>{selected.length} selected</em>
+        </div>
+        <p className="note">
+          Components render on the canvas, not in this panel. Generate tokens first (or use{' '}
+          <b>Generate entire system</b>) so the components bind to your variables instead of literals.
+        </p>
+        <div className="comp-chips">
+          {COMPONENT_LIBRARY.filter((c) => selected.includes(c.key)).map((c) => (
+            <span className="conv-chip" key={c.key}>
+              {c.label}
+            </span>
+          ))}
+        </div>
       </div>
     </>
   );

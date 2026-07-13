@@ -10,6 +10,12 @@ import {
   ELEVATION_LEVELS,
   SYSTEM_TOKEN_GROUPS,
   DEFAULT_LAYOUT_MODES,
+  COMPONENT_LIBRARY,
+  COMPONENT_KEYS,
+  buttonFillToken,
+  buttonTextToken,
+  badgeFillToken,
+  badgeTextToken,
 } from './utils';
 import type { ExtractedTextStyle } from './utils';
 import type { ColorFamilyInput } from './types';
@@ -234,6 +240,36 @@ describe('extended token layers', () => {
     for (const prefix of ['opacity', 'state']) {
       expect(SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === prefix)!.scopes).toContain('OPACITY');
     }
+  });
+});
+
+describe('component library', () => {
+  test('COMPONENT_KEYS mirrors the library, keys unique', () => {
+    const keys = COMPONENT_LIBRARY.map((c) => c.key);
+    expect(COMPONENT_KEYS).toEqual(keys);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  test('button fill tokens: ghost is transparent, others map to a semantic token', () => {
+    expect(buttonFillToken('primary')).toBe('action/primary');
+    expect(buttonFillToken('secondary')).toBe('action/secondary');
+    expect(buttonFillToken('danger')).toBe('danger');
+    expect(buttonFillToken('ghost')).toBeNull();
+  });
+
+  test('button text tokens: accent fills use on-accent, ghost uses the action color', () => {
+    expect(buttonTextToken('primary')).toBe('text/on-accent');
+    expect(buttonTextToken('danger')).toBe('text/on-accent');
+    expect(buttonTextToken('ghost')).toBe('action/primary');
+    expect(buttonTextToken('secondary')).toBe('text/primary');
+  });
+
+  test('badge tokens: neutral is a muted chip, colors fill with their role', () => {
+    expect(badgeFillToken('neutral')).toBe('bg/muted');
+    expect(badgeFillToken('primary')).toBe('action/primary');
+    expect(badgeFillToken('success')).toBe('success');
+    expect(badgeTextToken('neutral')).toBe('text/primary');
+    expect(badgeTextToken('danger')).toBe('text/on-accent');
   });
 });
 
