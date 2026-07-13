@@ -388,11 +388,13 @@ export const SEMANTIC_TOKENS: SemanticTokenSpec[] = [
   { name: 'bg/surface', role: 'neutral', lightStep: 50, darkStep: 900 },
   { name: 'bg/subtle', role: 'neutral', lightStep: 100, darkStep: 900 },
   { name: 'bg/muted', role: 'neutral', lightStep: 200, darkStep: 800 },
+  { name: 'bg/inverse', role: 'neutral', lightStep: 900, darkStep: 100 },
   // Content
   { name: 'text/primary', role: 'neutral', lightStep: 900, darkStep: 50 },
   { name: 'text/secondary', role: 'neutral', lightStep: 600, darkStep: 400 },
   { name: 'text/disabled', role: 'neutral', lightStep: 400, darkStep: 600 },
   { name: 'text/on-accent', role: 'neutral', lightStep: 50, darkStep: 50 },
+  { name: 'text/inverse', role: 'neutral', lightStep: 50, darkStep: 900 },
   // Border
   { name: 'border/default', role: 'neutral', lightStep: 200, darkStep: 800 },
   { name: 'border/strong', role: 'neutral', lightStep: 300, darkStep: 700 },

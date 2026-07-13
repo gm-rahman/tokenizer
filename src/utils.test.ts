@@ -86,7 +86,7 @@ describe('resolveSemanticTokens', () => {
 
   test('full family set resolves every token with no skips', () => {
     const { plan, skipped, missingRequired } = resolveSemanticTokens(full);
-    expect(plan).toHaveLength(17);
+    expect(plan).toHaveLength(19);
     expect(skipped).toEqual([]);
     expect(missingRequired).toEqual([]);
   });
@@ -117,7 +117,7 @@ describe('resolveSemanticTokens', () => {
     const { plan, skipped } = resolveSemanticTokens(noSuccess);
     expect(plan.find((p) => p.token === 'success')).toBeUndefined();
     expect(skipped).toEqual(['success']);
-    expect(plan).toHaveLength(16);
+    expect(plan).toHaveLength(18);
   });
 
   test('missing neutral or primary is reported as required', () => {
