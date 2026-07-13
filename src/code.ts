@@ -19,12 +19,15 @@ import {
   BUTTON_VARIANTS,
   BUTTON_SIZES,
   BADGE_COLORS,
+  ALERT_VARIANTS,
+  AVATAR_SIZES,
   buttonFillToken,
   buttonTextToken,
   badgeFillToken,
   badgeTextToken,
+  alertAccentToken,
 } from './utils';
-import type { ExtractedTextStyle, ButtonVariant, BadgeColor } from './utils';
+import type { ExtractedTextStyle, ButtonVariant, BadgeColor, AlertVariant } from './utils';
 import type {
   UiMessage,
   PluginMessage,
@@ -858,6 +861,160 @@ async function buildSwitch(index: Map<string, Variable>): Promise<ComponentSetNo
   return set;
 }
 
+async function buildTextarea(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Textarea';
+  c.layoutMode = 'VERTICAL';
+  c.primaryAxisSizingMode = 'FIXED';
+  c.counterAxisSizingMode = 'FIXED';
+  pad(c, index, '4', '3');
+  radius(c, index, 'md', 8);
+  c.fills = [fillPaint(index, 'bg/surface')];
+  c.strokes = [fillPaint(index, 'border/default')];
+  c.strokeAlign = 'INSIDE';
+  strokeWidth(c, index, 'sm', 1);
+  const placeholder = await makeTextNode('Placeholder', 'Body', styles, font, 14, fillPaint(index, 'text/secondary'));
+  c.appendChild(placeholder);
+  c.resize(240, 80);
+  placeholder.layoutSizingHorizontal = 'FILL';
+  return c;
+}
+
+async function buildSelect(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Select';
+  c.layoutMode = 'HORIZONTAL';
+  c.counterAxisSizingMode = 'AUTO';
+  c.counterAxisAlignItems = 'CENTER';
+  pad(c, index, '4', '3');
+  radius(c, index, 'md', 8);
+  c.fills = [fillPaint(index, 'bg/surface')];
+  c.strokes = [fillPaint(index, 'border/default')];
+  c.strokeAlign = 'INSIDE';
+  strokeWidth(c, index, 'sm', 1);
+  const label = await makeTextNode('Select option', 'Body', styles, font, 14, fillPaint(index, 'text/secondary'));
+  const chevron = await makeTextNode('▾', '', [], font, 12, fillPaint(index, 'text/secondary'));
+  c.appendChild(label);
+  c.appendChild(chevron);
+  c.primaryAxisSizingMode = 'FIXED';
+  c.resize(240, Math.max(1, c.height));
+  c.primaryAxisAlignItems = 'SPACE_BETWEEN';
+  return c;
+}
+
+async function buildRadio(index: Map<string, Variable>): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const selected of [false, true]) {
+    const c = figma.createComponent();
+    c.name = `Selected=${selected}`;
+    c.layoutMode = 'HORIZONTAL';
+    c.primaryAxisSizingMode = 'FIXED';
+    c.counterAxisSizingMode = 'FIXED';
+    c.primaryAxisAlignItems = 'CENTER';
+    c.counterAxisAlignItems = 'CENTER';
+    c.resize(20, 20);
+    radius(c, index, 'full', 9999);
+    c.fills = [fillPaint(index, 'bg/surface')];
+    c.strokes = [fillPaint(index, selected ? 'action/primary' : 'border/strong')];
+    c.strokeAlign = 'INSIDE';
+    strokeWidth(c, index, 'sm', 1);
+    if (selected) {
+      const dot = figma.createEllipse();
+      dot.resize(8, 8);
+      dot.fills = [fillPaint(index, 'action/primary')];
+      c.appendChild(dot);
+    }
+    nodes.push(c);
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Radio';
+  return set;
+}
+
+async function buildAlert(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const variant of ALERT_VARIANTS) {
+    const c = figma.createComponent();
+    c.name = `Variant=${variant}`;
+    c.layoutMode = 'HORIZONTAL';
+    c.counterAxisSizingMode = 'AUTO';
+    c.counterAxisAlignItems = 'CENTER';
+    pad(c, index, '4', '3');
+    gap(c, index, '3');
+    radius(c, index, 'md', 8);
+    c.fills = [fillPaint(index, 'bg/subtle')];
+    c.strokes = [fillPaint(index, 'border/default')];
+    c.strokeAlign = 'INSIDE';
+    strokeWidth(c, index, 'sm', 1);
+    const dot = figma.createEllipse();
+    dot.resize(8, 8);
+    dot.fills = [fillPaint(index, alertAccentToken(variant as AlertVariant))];
+    const message = await makeTextNode('Alert message goes here.', 'Body', styles, font, 14, fillPaint(index, 'text/primary'));
+    c.appendChild(dot);
+    c.appendChild(message);
+    c.primaryAxisSizingMode = 'FIXED';
+    c.resize(320, Math.max(1, c.height));
+    message.layoutSizingHorizontal = 'FILL';
+    nodes.push(c);
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Alert';
+  return set;
+}
+
+async function buildAvatar(index: Map<string, Variable>, font: FontName): Promise<ComponentSetNode> {
+  const nodes: ComponentNode[] = [];
+  for (const size of AVATAR_SIZES) {
+    const c = figma.createComponent();
+    c.name = `Size=${size.name}`;
+    c.layoutMode = 'HORIZONTAL';
+    c.primaryAxisSizingMode = 'FIXED';
+    c.counterAxisSizingMode = 'FIXED';
+    c.primaryAxisAlignItems = 'CENTER';
+    c.counterAxisAlignItems = 'CENTER';
+    c.resize(size.size, size.size);
+    radius(c, index, 'full', 9999);
+    c.fills = [fillPaint(index, 'bg/muted')];
+    const initials = await makeTextNode('AB', '', [], font, size.font, fillPaint(index, 'text/secondary'));
+    c.appendChild(initials);
+    nodes.push(c);
+  }
+  const set = figma.combineAsVariants(nodes, figma.currentPage);
+  set.name = 'Avatar';
+  return set;
+}
+
+async function buildTooltip(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Tooltip';
+  c.layoutMode = 'HORIZONTAL';
+  c.primaryAxisSizingMode = 'AUTO';
+  c.counterAxisSizingMode = 'AUTO';
+  c.counterAxisAlignItems = 'CENTER';
+  pad(c, index, '3', '2');
+  radius(c, index, 'sm', 6);
+  c.fills = [fillPaint(index, 'bg/inverse')];
+  const label = await makeTextNode('Tooltip', 'Caption', styles, font, 12, fillPaint(index, 'text/inverse'));
+  c.appendChild(label);
+  return c;
+}
+
 async function generateComponents(payload: GenerateComponentsPayload): Promise<void> {
   const index = await buildVarIndex();
   const styles = await figma.getLocalTextStylesAsync();
@@ -867,9 +1024,15 @@ async function generateComponents(payload: GenerateComponentsPayload): Promise<v
     button: () => buildButton(index, styles, regular),
     badge: () => buildBadge(index, styles, regular),
     input: () => buildInput(index, styles, regular),
+    textarea: () => buildTextarea(index, styles, regular),
+    select: () => buildSelect(index, styles, regular),
     card: () => buildCard(index, styles, regular),
     checkbox: () => buildCheckbox(index, regular),
+    radio: () => buildRadio(index),
     switch: () => buildSwitch(index),
+    alert: () => buildAlert(index, styles, regular),
+    avatar: () => buildAvatar(index, regular),
+    tooltip: () => buildTooltip(index, styles, regular),
   };
 
   const built: { label: string; node: SceneNode }[] = [];

@@ -717,9 +717,15 @@ export const COMPONENT_LIBRARY: ComponentInfo[] = [
   { key: 'button', label: 'Button', desc: '4 variants × 3 sizes · action / space / radius' },
   { key: 'badge', label: 'Badge', desc: '5 color variants · radius/full' },
   { key: 'input', label: 'Input', desc: 'surface + border + stroke width' },
+  { key: 'textarea', label: 'Textarea', desc: 'multi-line surface field' },
+  { key: 'select', label: 'Select', desc: 'surface + border + chevron' },
   { key: 'card', label: 'Card', desc: 'surface · border · radius/lg · elevation/2' },
   { key: 'checkbox', label: 'Checkbox', desc: 'checked / unchecked' },
+  { key: 'radio', label: 'Radio', desc: 'selected / unselected · radius/full' },
   { key: 'switch', label: 'Switch', desc: 'on / off' },
+  { key: 'alert', label: 'Alert', desc: '4 variants · subtle bg + accent dot' },
+  { key: 'avatar', label: 'Avatar', desc: '3 sizes · circle + initials' },
+  { key: 'tooltip', label: 'Tooltip', desc: 'inverse surface + inverse text' },
 ];
 
 export const COMPONENT_KEYS = COMPONENT_LIBRARY.map((c) => c.key);
@@ -769,6 +775,28 @@ export function badgeFillToken(color: BadgeColor): string {
 export function badgeTextToken(color: BadgeColor): string {
   return color === 'neutral' ? 'text/primary' : 'text/on-accent';
 }
+
+export const ALERT_VARIANTS = ['info', 'success', 'warning', 'danger'] as const;
+export type AlertVariant = (typeof ALERT_VARIANTS)[number];
+
+/** Accent color token for an alert variant (the dot / left emphasis). */
+export function alertAccentToken(variant: AlertVariant): string {
+  return variant === 'info' ? 'action/primary' : variant;
+}
+
+export interface AvatarSize {
+  name: string;
+  /** Diameter in px. */
+  size: number;
+  /** Initials font size. */
+  font: number;
+}
+
+export const AVATAR_SIZES: AvatarSize[] = [
+  { name: 'sm', size: 24, font: 11 },
+  { name: 'md', size: 32, font: 13 },
+  { name: 'lg', size: 40, font: 16 },
+];
 
 // ---------------------------------------------------------------------------
 // Text styles -> variables
