@@ -566,7 +566,7 @@ async function generateDocsPage(payload: GenerateAllPayload): Promise<void> {
     if (child.name === DOC_FRAME_NAME) child.remove();
   }
   page.appendChild(root);
-  figma.currentPage = page;
+  await figma.setCurrentPageAsync(page);
   figma.viewport.scrollAndZoomIntoView([root]);
 }
 
@@ -921,7 +921,7 @@ async function generateComponents(payload: GenerateComponentsPayload): Promise<v
     board.appendChild(group);
   }
   page.appendChild(board);
-  figma.currentPage = page;
+  await figma.setCurrentPageAsync(page);
   figma.viewport.scrollAndZoomIntoView([board]);
 
   const note = failed.length ? ` (failed: ${failed.join(', ')})` : '';
