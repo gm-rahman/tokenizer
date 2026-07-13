@@ -16,6 +16,7 @@ import {
   buttonTextToken,
   badgeFillToken,
   badgeTextToken,
+  alertAccentToken,
 } from './utils';
 import type { ExtractedTextStyle } from './utils';
 import type { ColorFamilyInput } from './types';
@@ -270,6 +271,13 @@ describe('component library', () => {
     expect(badgeFillToken('success')).toBe('success');
     expect(badgeTextToken('neutral')).toBe('text/primary');
     expect(badgeTextToken('danger')).toBe('text/on-accent');
+  });
+
+  test('alert accent: info maps to the action color, others to their role', () => {
+    expect(alertAccentToken('info')).toBe('action/primary');
+    expect(alertAccentToken('success')).toBe('success');
+    expect(alertAccentToken('warning')).toBe('warning');
+    expect(alertAccentToken('danger')).toBe('danger');
   });
 });
 
