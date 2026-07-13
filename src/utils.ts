@@ -388,11 +388,13 @@ export const SEMANTIC_TOKENS: SemanticTokenSpec[] = [
   { name: 'bg/surface', role: 'neutral', lightStep: 50, darkStep: 900 },
   { name: 'bg/subtle', role: 'neutral', lightStep: 100, darkStep: 900 },
   { name: 'bg/muted', role: 'neutral', lightStep: 200, darkStep: 800 },
+  { name: 'bg/inverse', role: 'neutral', lightStep: 900, darkStep: 100 },
   // Content
   { name: 'text/primary', role: 'neutral', lightStep: 900, darkStep: 50 },
   { name: 'text/secondary', role: 'neutral', lightStep: 600, darkStep: 400 },
   { name: 'text/disabled', role: 'neutral', lightStep: 400, darkStep: 600 },
   { name: 'text/on-accent', role: 'neutral', lightStep: 50, darkStep: 50 },
+  { name: 'text/inverse', role: 'neutral', lightStep: 50, darkStep: 900 },
   // Border
   { name: 'border/default', role: 'neutral', lightStep: 200, darkStep: 800 },
   { name: 'border/strong', role: 'neutral', lightStep: 300, darkStep: 700 },
@@ -458,4 +460,352 @@ export function resolveSemanticTokens(families: ColorFamilyInput[]): SemanticRes
   const skipped = [...skippedSet].filter((r) => !REQUIRED_ROLES.includes(r)).sort();
 
   return { plan, skipped, missingRequired };
+}
+
+// ---------------------------------------------------------------------------
+// Universal design system (spacing / radii / elevation)
+// One opinionated token set distilled from Stripe, Vercel, Apple HIG, and
+// Material 3: a base-4 spacing scale with a fine micro step, a shape scale from
+// sharp to pill, and five crisp elevation levels. All values are plain data so
+// they can be previewed in the UI and written by the sandbox unchanged.
+// ---------------------------------------------------------------------------
+
+export interface TokenValue {
+  /** Suffix after the group prefix, e.g. "2" -> space/2, "md" -> radius/md. */
+  name: string;
+  /** Pixel value written to the variable. */
+  value: number;
+}
+
+/** Base-4 spacing with a 2px micro step (space/1) for fine interactive padding. */
+export const SPACING_SCALE: TokenValue[] = [
+  { name: '0', value: 0 },
+  { name: '1', value: 2 },
+  { name: '2', value: 4 },
+  { name: '3', value: 8 },
+  { name: '4', value: 12 },
+  { name: '5', value: 16 },
+  { name: '6', value: 20 },
+  { name: '7', value: 24 },
+  { name: '8', value: 32 },
+  { name: '9', value: 40 },
+  { name: '10', value: 48 },
+  { name: '11', value: 64 },
+  { name: '12', value: 96 },
+];
+
+/** Shape scale: sharp inner elements → soft cards → pill. `full` is a large px. */
+export const RADIUS_SCALE: TokenValue[] = [
+  { name: 'none', value: 0 },
+  { name: 'xs', value: 4 },
+  { name: 'sm', value: 6 },
+  { name: 'md', value: 8 },
+  { name: 'lg', value: 12 },
+  { name: 'xl', value: 16 },
+  { name: '2xl', value: 24 },
+  { name: 'full', value: 9999 },
+];
+
+export interface ElevationLevel {
+  level: number;
+  /** Shadow offset X / Y in px. */
+  x: number;
+  y: number;
+  /** Blur radius in px. */
+  blur: number;
+  /** Spread in px (negative tightens the shadow). */
+  spread: number;
+  /** Shadow alpha as a percentage (0–100), applied to the shadow tint. */
+  opacity: number;
+}
+
+/** Five levels of crisp elevation; opacity climbs and shadows soften with height. */
+export const ELEVATION_LEVELS: ElevationLevel[] = [
+  { level: 1, x: 0, y: 1, blur: 2, spread: 0, opacity: 5 },
+  { level: 2, x: 0, y: 2, blur: 4, spread: -1, opacity: 8 },
+  { level: 3, x: 0, y: 4, blur: 8, spread: -2, opacity: 10 },
+  { level: 4, x: 0, y: 8, blur: 16, spread: -4, opacity: 12 },
+  { level: 5, x: 0, y: 16, blur: 24, spread: -6, opacity: 14 },
+];
+
+/** Cool near-black default for the shadow tint; editable in the UI. */
+export const DEFAULT_SHADOW_TINT = '#101828';
+
+/** Elevation number-variable names for a level, e.g. elevation/2/blur. */
+export function elevationVarNames(level: number): { prop: keyof Omit<ElevationLevel, 'level'>; name: string }[] {
+  return (['x', 'y', 'blur', 'spread', 'opacity'] as const).map((prop) => ({
+    prop,
+    name: `elevation/${level}/${prop}`,
+  }));
+}
+
+// ---------------------------------------------------------------------------
+// Extended foundation token layers
+// The remaining token layers an industry-standard design system carries, beyond
+// the spacing/radii/elevation above: motion (duration + easing), opacity + state
+// layers, border widths, z-index, focus ring, and icon sizes. One opinionated,
+// merged set distilled from the W3C DTCG taxonomy and Material 3 / Tailwind / Radix.
+// Kept as plain data (scopes as strings, cast to VariableScope in the sandbox) so
+// this module stays free of the `figma` global and previews in the UI unchanged.
+// ---------------------------------------------------------------------------
+
+export interface SystemTokenGroup {
+  /** Variable group prefix, e.g. "duration" -> duration/fast. */
+  prefix: string;
+  /** UI section heading, e.g. "Motion · Duration". */
+  label: string;
+  type: 'FLOAT' | 'STRING';
+  /** Figma VariableScope names applied in the sandbox; [] leaves the default. */
+  scopes: string[];
+  tokens: { name: string; value: number | string }[];
+}
+
+export const SYSTEM_TOKEN_GROUPS: SystemTokenGroup[] = [
+  {
+    prefix: 'duration',
+    label: 'Motion · Duration',
+    type: 'FLOAT',
+    scopes: [],
+    tokens: [
+      { name: 'instant', value: 100 },
+      { name: 'fast', value: 150 },
+      { name: 'normal', value: 200 },
+      { name: 'slow', value: 300 },
+      { name: 'slower', value: 400 },
+      { name: 'slowest', value: 500 },
+    ],
+  },
+  {
+    prefix: 'easing',
+    label: 'Motion · Easing',
+    type: 'STRING',
+    scopes: [],
+    tokens: [
+      { name: 'linear', value: 'cubic-bezier(0, 0, 1, 1)' },
+      { name: 'standard', value: 'cubic-bezier(0.2, 0, 0, 1)' },
+      { name: 'emphasized', value: 'cubic-bezier(0.05, 0.7, 0.1, 1)' },
+      { name: 'decelerate', value: 'cubic-bezier(0, 0, 0, 1)' },
+      { name: 'accelerate', value: 'cubic-bezier(0.3, 0, 1, 1)' },
+    ],
+  },
+  {
+    prefix: 'opacity',
+    label: 'Opacity',
+    type: 'FLOAT',
+    scopes: ['OPACITY'],
+    tokens: [
+      { name: 'disabled', value: 0.38 },
+      { name: 'muted', value: 0.6 },
+      { name: 'backdrop', value: 0.5 },
+    ],
+  },
+  {
+    prefix: 'state',
+    label: 'State layers',
+    type: 'FLOAT',
+    scopes: ['OPACITY'],
+    tokens: [
+      { name: 'hover', value: 0.08 },
+      { name: 'focus', value: 0.12 },
+      { name: 'pressed', value: 0.12 },
+      { name: 'dragged', value: 0.16 },
+    ],
+  },
+  {
+    prefix: 'stroke',
+    label: 'Border width',
+    type: 'FLOAT',
+    scopes: ['STROKE_FLOAT'],
+    tokens: [
+      { name: 'none', value: 0 },
+      { name: 'sm', value: 1 },
+      { name: 'md', value: 2 },
+      { name: 'lg', value: 4 },
+    ],
+  },
+  {
+    prefix: 'z',
+    label: 'Z-index',
+    type: 'FLOAT',
+    scopes: [],
+    tokens: [
+      { name: 'dropdown', value: 1000 },
+      { name: 'sticky', value: 1100 },
+      { name: 'overlay', value: 1300 },
+      { name: 'modal', value: 1400 },
+      { name: 'popover', value: 1500 },
+      { name: 'toast', value: 1700 },
+      { name: 'tooltip', value: 1800 },
+    ],
+  },
+  {
+    prefix: 'focus',
+    label: 'Focus ring',
+    type: 'FLOAT',
+    scopes: [],
+    tokens: [
+      { name: 'width', value: 2 },
+      { name: 'offset', value: 2 },
+    ],
+  },
+  {
+    prefix: 'icon',
+    label: 'Icon size',
+    type: 'FLOAT',
+    scopes: ['WIDTH_HEIGHT'],
+    tokens: [
+      { name: 'xs', value: 12 },
+      { name: 'sm', value: 16 },
+      { name: 'md', value: 20 },
+      { name: 'lg', value: 24 },
+      { name: 'xl', value: 32 },
+      { name: '2xl', value: 40 },
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Layout & breakpoints
+// A responsive foundation: one Number variable per grid property, resolving to a
+// different value in each breakpoint mode so it can be bound to Layout Grids.
+// ---------------------------------------------------------------------------
+
+export interface LayoutMode {
+  /** Mode name and breakpoint label, e.g. "Mobile". */
+  name: string;
+  /** Breakpoint/Width for this mode. */
+  width: number;
+  /** Grid/Columns count. */
+  columns: number;
+  /** Grid/Margin (px). Figma Number variables can't be "auto", so use a value. */
+  margin: number;
+  /** Grid/Gutter (px). */
+  gutter: number;
+}
+
+export const DEFAULT_LAYOUT_MODES: LayoutMode[] = [
+  { name: 'Mobile', width: 402, columns: 4, margin: 16, gutter: 16 },
+  { name: 'Tablet', width: 768, columns: 8, margin: 32, gutter: 24 },
+  { name: 'Desktop', width: 1440, columns: 12, margin: 64, gutter: 24 },
+];
+
+/** Number variables written to the Layout & Breakpoints collection, one per mode. */
+export const LAYOUT_VARIABLES: { name: string; key: keyof Omit<LayoutMode, 'name'> }[] = [
+  { name: 'Breakpoint/Width', key: 'width' },
+  { name: 'Grid/Columns', key: 'columns' },
+  { name: 'Grid/Margin', key: 'margin' },
+  { name: 'Grid/Gutter', key: 'gutter' },
+];
+
+// ---------------------------------------------------------------------------
+// Component library (Phase 2)
+// Metadata describing the starter components the sandbox builds as Figma
+// component sets, each wired to the variables generated above (fills → semantic
+// color tokens, padding/gap → space/*, corner → radius/*, border → stroke/*).
+// Kept as pure data so the UI can list/preview them and the builders stay
+// data-driven; all Figma node construction lives in code.ts.
+// ---------------------------------------------------------------------------
+
+export interface ComponentInfo {
+  key: string;
+  label: string;
+  /** One-line description of what it is and which tokens it binds. */
+  desc: string;
+}
+
+export const COMPONENT_LIBRARY: ComponentInfo[] = [
+  { key: 'button', label: 'Button', desc: '4 variants × 3 sizes · action / space / radius' },
+  { key: 'badge', label: 'Badge', desc: '5 color variants · radius/full' },
+  { key: 'input', label: 'Input', desc: 'surface + border + stroke width' },
+  { key: 'card', label: 'Card', desc: 'surface · border · radius/lg · elevation/2' },
+  { key: 'checkbox', label: 'Checkbox', desc: 'checked / unchecked' },
+  { key: 'switch', label: 'Switch', desc: 'on / off' },
+];
+
+export const COMPONENT_KEYS = COMPONENT_LIBRARY.map((c) => c.key);
+
+export const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
+export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
+
+export interface ButtonSize {
+  name: string;
+  /** space/* token suffix for horizontal / vertical padding and gap. */
+  padX: string;
+  padY: string;
+  gap: string;
+  /** Literal font size fallback when no text style is applied. */
+  font: number;
+}
+
+export const BUTTON_SIZES: ButtonSize[] = [
+  { name: 'sm', padX: '3', padY: '2', gap: '2', font: 12 },
+  { name: 'md', padX: '5', padY: '3', gap: '3', font: 14 },
+  { name: 'lg', padX: '6', padY: '4', gap: '3', font: 16 },
+];
+
+export const BADGE_COLORS = ['neutral', 'primary', 'success', 'warning', 'danger'] as const;
+export type BadgeColor = (typeof BADGE_COLORS)[number];
+
+/** The semantic color token a button variant fills with (null = transparent/ghost). */
+export function buttonFillToken(variant: ButtonVariant): string | null {
+  if (variant === 'primary') return 'action/primary';
+  if (variant === 'secondary') return 'action/secondary';
+  if (variant === 'danger') return 'danger';
+  return null; // ghost
+}
+
+/** The semantic color token a button variant's label uses. */
+export function buttonTextToken(variant: ButtonVariant): string {
+  if (variant === 'primary' || variant === 'danger') return 'text/on-accent';
+  if (variant === 'ghost') return 'action/primary';
+  return 'text/primary';
+}
+
+/** The fill token for a badge color (neutral reads as a quiet muted chip). */
+export function badgeFillToken(color: BadgeColor): string {
+  return color === 'neutral' ? 'bg/muted' : color === 'primary' ? 'action/primary' : color;
+}
+
+export function badgeTextToken(color: BadgeColor): string {
+  return color === 'neutral' ? 'text/primary' : 'text/on-accent';
+}
+
+// ---------------------------------------------------------------------------
+// Text styles -> variables
+// Expand a text style's resolved values into the Number / String variables that
+// make up its entry in the Typography Variables collection. Pure so the mapping
+// (names + types) is unit-testable; the sandbox reads the styles and writes them.
+// ---------------------------------------------------------------------------
+
+export interface ExtractedTextStyle {
+  /** Text-style name, used verbatim as the variable group, e.g. "Body/Bold". */
+  name: string;
+  fontFamily: string;
+  /** Font style name as the weight label, e.g. "Semi Bold". */
+  fontWeight: string;
+  fontSize: number;
+  /** Line height in px (0 when the style uses AUTO). */
+  lineHeight: number;
+  /** Letter spacing in px. */
+  letterSpacing: number;
+  /** Paragraph spacing in px. */
+  paragraphSpacing: number;
+}
+
+export interface TextStyleVar {
+  name: string;
+  type: 'FLOAT' | 'STRING';
+  value: number | string;
+}
+
+/** Six variables per text style: two strings (family, weight) + four numbers. */
+export function textStyleVariables(s: ExtractedTextStyle): TextStyleVar[] {
+  return [
+    { name: `${s.name}/FontFamily`, type: 'STRING', value: s.fontFamily },
+    { name: `${s.name}/FontWeight`, type: 'STRING', value: s.fontWeight },
+    { name: `${s.name}/FontSize`, type: 'FLOAT', value: s.fontSize },
+    { name: `${s.name}/LineHeight`, type: 'FLOAT', value: s.lineHeight },
+    { name: `${s.name}/LetterSpacing`, type: 'FLOAT', value: s.letterSpacing },
+    { name: `${s.name}/ParagraphSpacing`, type: 'FLOAT', value: s.paragraphSpacing },
+  ];
 }

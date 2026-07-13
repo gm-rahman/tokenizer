@@ -511,6 +511,187 @@ select.control {
   font-variant-numeric: tabular-nums;
 }
 
+/* ---- System / Layout / Convert shared ---- */
+.note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--figma-color-text-secondary);
+}
+.note b {
+  color: var(--figma-color-text);
+  font-weight: 650;
+}
+.grid-2x2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.sys-key {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--figma-color-text);
+}
+.sys-val {
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Spacing bars */
+.sys-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 6px;
+}
+.sys-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+}
+.sys-row .sys-bar {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--figma-color-bg-brand);
+  min-width: 2px;
+}
+.sys-row .sys-val {
+  text-align: right;
+}
+
+/* Radii */
+.sys-radii {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.sys-radius {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 52px;
+}
+.sys-swatch {
+  width: 44px;
+  height: 44px;
+  background: var(--figma-color-bg-brand);
+  border-top-left-radius: 0 !important;
+}
+
+/* Elevation */
+.sys-elev {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 4px 0 8px;
+}
+.sys-elev-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 74px;
+}
+.sys-elev-box {
+  width: 56px;
+  height: 40px;
+  border-radius: 8px;
+  background: var(--figma-color-bg);
+  border: 1px solid var(--figma-color-border);
+}
+
+/* Layout preview */
+.lay-mode {
+  margin-bottom: 16px;
+}
+.lay-grid {
+  display: flex;
+  height: 44px;
+  background: var(--figma-color-bg);
+  border: 1px solid var(--figma-color-border);
+  border-radius: 6px;
+}
+.lay-col {
+  flex: 1;
+  background: var(--figma-color-bg-brand);
+  opacity: 0.5;
+  border-radius: 2px;
+}
+.lay-meta {
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--figma-color-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Extended token layers grid */
+.tok-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+  margin-bottom: 6px;
+}
+.tok-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--figma-color-border);
+}
+
+/* Components list */
+.comp-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 0;
+  cursor: pointer;
+  border-bottom: 1px solid var(--figma-color-border);
+}
+.comp-row:last-child {
+  border-bottom: 0;
+}
+.comp-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+}
+.comp-desc {
+  font-size: 10.5px;
+  color: var(--figma-color-text-secondary);
+  text-align: right;
+}
+.comp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* Convert chips */
+.conv-vars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.conv-chip {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--figma-color-border);
+  color: var(--figma-color-text-secondary);
+}
+.conv-chip.str {
+  background: var(--figma-color-bg-secondary);
+}
+
 /* ---- Footer ---- */
 .pl-foot {
   position: sticky;
@@ -530,6 +711,33 @@ select.control {
   font-size: 11px;
   color: var(--figma-color-text-secondary);
   font-variant-numeric: tabular-nums;
+}
+.foot-docs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--figma-color-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ghost {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--figma-color-border);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--figma-color-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ghost:hover:not(:disabled) {
+  background: var(--figma-color-bg-hover);
+}
+.ghost:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 .primary {
   height: 34px;

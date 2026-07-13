@@ -4,7 +4,18 @@ import {
   defaultTypeStyles,
   resolveSemanticTokens,
   SEMANTIC_TOKENS,
+  SPACING_SCALE,
+  RADIUS_SCALE,
+  ELEVATION_LEVELS,
+  SYSTEM_TOKEN_GROUPS,
+  DEFAULT_SHADOW_TINT,
+  DEFAULT_LAYOUT_MODES,
+  LAYOUT_VARIABLES,
+  COMPONENT_LIBRARY,
+  COMPONENT_KEYS,
+  textStyleVariables,
 } from './utils';
+import type { LayoutMode } from './utils';
 import type {
   UiMessage,
   PluginMessage,
@@ -13,6 +24,8 @@ import type {
   ColorRole,
   TypeStyle,
 } from './types';
+
+type Tab = 'typography' | 'colors' | 'system' | 'layout' | 'components' | 'convert';
 
 function sendMessage(msg: UiMessage): void {
   window.parent.postMessage({ pluginMessage: msg }, '*');
@@ -102,10 +115,11 @@ interface Toast {
 }
 
 export function App() {
-  const [tab, setTab] = useState<'typography' | 'colors'>('typography');
+  const [tab, setTab] = useState<Tab>('typography');
   const [toast, setToast] = useState<Toast | null>(null);
   const [busy, setBusy] = useState(false);
   const [fonts, setFonts] = useState<string[]>(FONT_FALLBACK);
+  const [textStyleNames, setTextStyleNames] = useState<string[]>([]);
 
   // Colors state
   const [families, setFamilies] = useState<ColorFamilyInput[]>(DEFAULT_FAMILIES);
@@ -119,12 +133,29 @@ export function App() {
   const [multiplier, setMultiplier] = useState(1);
   const [styles, setStyles] = useState<TypeStyle[]>(() => seedStyles(16, 1.25, 1));
 
+  // Universal design-system state
+  const [shadowTint, setShadowTint] = useState(DEFAULT_SHADOW_TINT);
+  const [includeEffects, setIncludeEffects] = useState(true);
+
+  // Layout & breakpoints state
+  const [layoutModes, setLayoutModes] = useState<LayoutMode[]>(() =>
+    DEFAULT_LAYOUT_MODES.map((m) => ({ ...m })),
+  );
+
+  // Whole-system pass
+  const [includeDocs, setIncludeDocs] = useState(true);
+
+  // Components state — which of the starter set to build
+  const [components, setComponents] = useState<string[]>(COMPONENT_KEYS);
+
   useEffect(() => {
     function onMessage(event: MessageEvent) {
       const msg = event.data?.pluginMessage as PluginMessage | undefined;
       if (!msg) return;
       if (msg.type === 'fonts') {
         setFonts(msg.families.length ? msg.families : FONT_FALLBACK);
+      } else if (msg.type === 'text-styles') {
+        setTextStyleNames(msg.names);
       } else if (msg.type === 'progress') {
         setBusy(true);
         setToast({ kind: 'info', message: `${msg.message} (${msg.current}/${msg.total})` });
@@ -164,18 +195,64 @@ export function App() {
         type: 'generate-colors',
         payload: { families, space, generateSemanticTokens: semantic },
       });
+    } else if (tab === 'system') {
+      sendMessage({ type: 'generate-system', payload: { shadowTint, includeEffectStyles: includeEffects } });
+    } else if (tab === 'layout') {
+      sendMessage({ type: 'generate-layout', payload: { modes: layoutModes } });
+    } else if (tab === 'components') {
+      sendMessage({ type: 'generate-components', payload: { components } });
+    } else if (tab === 'convert') {
+      sendMessage({ type: 'generate-text-variables' });
     } else {
       sendMessage({ type: 'generate-typography', payload: { fontFamily, styles } });
     }
   }
 
+  function handleGenerateAll() {
+    setToast(null);
+    sendMessage({
+      type: 'generate-all',
+      payload: {
+        colors: { families, space, generateSemanticTokens: semantic },
+        typography: { fontFamily, styles },
+        system: { shadowTint, includeEffectStyles: includeEffects },
+        layout: { modes: layoutModes },
+        includeDocsPage: includeDocs,
+      },
+    });
+  }
+
   const textStyleCount = styles.reduce((n, s) => n + Math.max(1, s.weights.length), 0);
+  const systemGroupVars = SYSTEM_TOKEN_GROUPS.reduce((n, g) => n + g.tokens.length, 0);
+  const systemVarCount =
+    SPACING_SCALE.length + RADIUS_SCALE.length + 1 + ELEVATION_LEVELS.length * 5 + systemGroupVars;
   const footNote =
     tab === 'typography'
       ? `${styles.length} styles · ${textStyleCount} text styles`
-      : `${families.length} families · ${families.length * 11} primitives${
-          semantic ? ' · semantic tokens' : ''
-        }`;
+      : tab === 'colors'
+        ? `${families.length} families · ${families.length * 11} primitives${
+            semantic ? ' · semantic tokens' : ''
+          }`
+        : tab === 'system'
+          ? `${systemVarCount} variables${includeEffects ? ` · ${ELEVATION_LEVELS.length} effect styles` : ''}`
+          : tab === 'layout'
+            ? `${layoutModes.length} modes · ${LAYOUT_VARIABLES.length} grid variables`
+            : tab === 'components'
+              ? `${components.length} of ${COMPONENT_LIBRARY.length} components`
+              : `${textStyleNames.length} text styles · ${textStyleNames.length * 6} variables`;
+
+  const generateLabel =
+    tab === 'typography'
+      ? 'Generate typography'
+      : tab === 'colors'
+        ? 'Generate variables'
+        : tab === 'system'
+          ? 'Generate design system'
+          : tab === 'layout'
+            ? 'Generate layout variables'
+            : tab === 'components'
+              ? 'Generate components'
+              : 'Convert text styles';
 
   return (
     <div className="app">
@@ -185,27 +262,31 @@ export function App() {
           <b>Token Generator</b>
         </div>
         <div className="tabs" role="tablist">
-          <button
-            role="tab"
-            className={tab === 'typography' ? 'active' : ''}
-            aria-selected={tab === 'typography'}
-            onClick={() => setTab('typography')}
-          >
-            Typography
-          </button>
-          <button
-            role="tab"
-            className={tab === 'colors' ? 'active' : ''}
-            aria-selected={tab === 'colors'}
-            onClick={() => setTab('colors')}
-          >
-            Colors
-          </button>
+          {(
+            [
+              ['typography', 'Typography'],
+              ['colors', 'Colors'],
+              ['system', 'System'],
+              ['layout', 'Layout'],
+              ['components', 'Components'],
+              ['convert', 'Convert'],
+            ] as [Tab, string][]
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              className={tab === id ? 'active' : ''}
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 
       <main className="pl-body">
-        {tab === 'typography' ? (
+        {tab === 'typography' && (
           <TypographyTab
             fonts={fonts}
             fontFamily={fontFamily}
@@ -218,7 +299,8 @@ export function App() {
             setStyles={setStyles}
             reset={() => setStyles(seedStyles(baseSize, ratio, multiplier))}
           />
-        ) : (
+        )}
+        {tab === 'colors' && (
           <ColorsTab
             families={families}
             setFamilies={setFamilies}
@@ -228,18 +310,32 @@ export function App() {
             setSemantic={setSemantic}
           />
         )}
+        {tab === 'system' && (
+          <SystemTab
+            shadowTint={shadowTint}
+            setShadowTint={setShadowTint}
+            includeEffects={includeEffects}
+            setIncludeEffects={setIncludeEffects}
+          />
+        )}
+        {tab === 'layout' && <LayoutTab modes={layoutModes} setModes={setLayoutModes} />}
+        {tab === 'components' && <ComponentsTab selected={components} setSelected={setComponents} />}
+        {tab === 'convert' && <ConvertTab names={textStyleNames} />}
       </main>
 
       <footer className="pl-foot">
         {toast && <div className={`toast ${toast.kind}`}>{toast.message}</div>}
         <div className="foot-row">
+          <label className="foot-docs" title="Draw a documentation page on the canvas">
+            <input type="checkbox" checked={includeDocs} onChange={(e) => setIncludeDocs(e.target.checked)} />
+            Docs page
+          </label>
           <span className="foot-note">{footNote}</span>
+          <button type="button" className="ghost" disabled={busy} onClick={handleGenerateAll}>
+            Generate entire system
+          </button>
           <button type="button" className="primary" disabled={busy} onClick={handleGenerate}>
-            {busy
-              ? 'Generating…'
-              : tab === 'typography'
-                ? 'Generate typography'
-                : 'Generate variables'}
+            {busy ? 'Generating…' : generateLabel}
           </button>
         </div>
       </footer>
@@ -691,6 +787,357 @@ function ColorsTab(props: {
               <div className="rolehint">Skipped {resolution.skipped.join(', ')} — no family tagged.</div>
             )}
           </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// System (universal design system: spacing / radii / elevation)
+// ---------------------------------------------------------------------------
+
+function SystemTab(props: {
+  shadowTint: string;
+  setShadowTint: (v: string) => void;
+  includeEffects: boolean;
+  setIncludeEffects: (v: boolean) => void;
+}) {
+  const { shadowTint, setShadowTint, includeEffects, setIncludeEffects } = props;
+  const maxSpace = SPACING_SCALE[SPACING_SCALE.length - 1].value;
+
+  return (
+    <>
+      <div className="controls">
+        <div className="field">
+          <span className="flabel">Universal system</span>
+          <div className="card">
+            <p className="note">
+              One opinionated token set distilled from the W3C DTCG taxonomy, Material 3, Tailwind,
+              and Radix — written to a <b>Design System</b> collection: <b>{SPACING_SCALE.length}</b>{' '}
+              spacing steps, <b>{RADIUS_SCALE.length}</b> radii, <b>{ELEVATION_LEVELS.length}</b>{' '}
+              elevation levels, plus motion, opacity, state layers, border widths, z-index, focus, and
+              icon sizes.
+            </p>
+          </div>
+        </div>
+
+        <label className="field">
+          <span className="flabel">Shadow tint</span>
+          <div className="card fam" style={{ marginBottom: 0 }}>
+            <input
+              className="swatch-input"
+              type="color"
+              aria-label="Shadow tint"
+              value={/^#[0-9a-fA-F]{6}$/.test(shadowTint) ? shadowTint : '#101828'}
+              onChange={(e) => setShadowTint(e.target.value)}
+            />
+            <input
+              className="control fname"
+              value={shadowTint}
+              aria-label="Shadow tint hex"
+              onChange={(e) => setShadowTint(e.target.value)}
+            />
+          </div>
+        </label>
+
+        <label className="checkbox">
+          <input
+            type="checkbox"
+            checked={includeEffects}
+            onChange={(e) => setIncludeEffects(e.target.checked)}
+          />
+          Also create drop-shadow Effect Styles (elevation/1–{ELEVATION_LEVELS.length})
+        </label>
+      </div>
+
+      <div className="preview">
+        <div className="pv-head">
+          <span className="flabel">Preview</span>
+          <em>spacing · radii · elevation</em>
+        </div>
+
+        <div className="cv-sub">Spacing</div>
+        <div className="sys-list">
+          {SPACING_SCALE.map((s) => (
+            <div className="sys-row" key={s.name}>
+              <span className="sys-key">space/{s.name}</span>
+              <span className="sys-bar" style={{ width: `${(s.value / maxSpace) * 100}%` }} />
+              <span className="sys-val">{s.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="cv-sub">Radii</div>
+        <div className="sys-radii">
+          {RADIUS_SCALE.map((r) => (
+            <div className="sys-radius" key={r.name}>
+              <span
+                className="sys-swatch"
+                style={{ borderRadius: Math.min(r.value, 22) }}
+                title={`radius/${r.name} · ${r.value}`}
+              />
+              <span className="sys-key">{r.name}</span>
+              <span className="sys-val">{r.value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="cv-sub">Elevation</div>
+        <div className="sys-elev">
+          {ELEVATION_LEVELS.map((e) => {
+            const rgb = /^#[0-9a-fA-F]{6}$/.test(shadowTint) ? shadowTint : '#101828';
+            const shadow = `${e.x}px ${e.y}px ${e.blur}px ${e.spread}px ${hexAlpha(rgb, e.opacity)}`;
+            return (
+              <div className="sys-elev-item" key={e.level}>
+                <span className="sys-elev-box" style={{ boxShadow: shadow }} />
+                <span className="sys-key">elevation/{e.level}</span>
+                <span className="sys-val">
+                  y{e.y} · b{e.blur} · {e.opacity}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {SYSTEM_TOKEN_GROUPS.map((g) => (
+          <div key={g.prefix}>
+            <div className="cv-sub">{g.label}</div>
+            <div className="tok-grid">
+              {g.tokens.map((t) => (
+                <div className="tok-cell" key={t.name}>
+                  <span className="sys-key">
+                    {g.prefix}/{t.name}
+                  </span>
+                  <span className="sys-val">{t.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// rgba() string from a #rrggbb hex + an opacity percentage (0–100).
+function hexAlpha(hex: string, opacityPct: number): string {
+  const n = Number.parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 0xff;
+  const g = (n >> 8) & 0xff;
+  const b = n & 0xff;
+  return `rgba(${r}, ${g}, ${b}, ${opacityPct / 100})`;
+}
+
+// ---------------------------------------------------------------------------
+// Layout & breakpoints
+// ---------------------------------------------------------------------------
+
+const LAYOUT_FIELDS: { key: keyof Omit<LayoutMode, 'name'>; label: string }[] = [
+  { key: 'width', label: 'Width' },
+  { key: 'columns', label: 'Columns' },
+  { key: 'margin', label: 'Margin' },
+  { key: 'gutter', label: 'Gutter' },
+];
+
+function LayoutTab(props: {
+  modes: LayoutMode[];
+  setModes: React.Dispatch<React.SetStateAction<LayoutMode[]>>;
+}) {
+  const { modes, setModes } = props;
+
+  function update(i: number, patch: Partial<LayoutMode>) {
+    setModes((prev) => prev.map((m, idx) => (idx === i ? { ...m, ...patch } : m)));
+  }
+
+  return (
+    <>
+      <div className="controls">
+        <div className="field">
+          <span className="flabel">Breakpoints &amp; grid</span>
+          <div className="card">
+            <p className="note">
+              A <b>Layout &amp; Breakpoints</b> collection with one mode per breakpoint. Each Number
+              variable resolves per mode, ready to bind to Layout Grid columns, margin, and gutter.
+            </p>
+          </div>
+        </div>
+
+        {modes.map((m, i) => (
+          <div className="field" key={i}>
+            <span className="flabel">{m.name}</span>
+            <div className="card grid-2x2">
+              {LAYOUT_FIELDS.map((f) => (
+                <label className="mini" key={f.key}>
+                  <span>{f.label}</span>
+                  <input
+                    className="control"
+                    type="number"
+                    value={m[f.key]}
+                    onChange={(e) => update(i, { [f.key]: Number(e.target.value) || 0 })}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+        <p className="note">
+          Figma Number variables cannot be auto, so the desktop margin is a concrete value — edit it
+          to suit your max-width.
+        </p>
+      </div>
+
+      <div className="preview">
+        <div className="pv-head">
+          <span className="flabel">Preview</span>
+          <em>columns · margin · gutter</em>
+        </div>
+        {modes.map((m, i) => (
+          <div className="lay-mode" key={i}>
+            <div className="cv-cap">
+              <b>{m.name}</b>
+              <span>
+                {m.width}px · {m.columns} cols
+              </span>
+            </div>
+            <div className="lay-grid" style={{ padding: `0 ${Math.min(m.margin, 40)}px`, gap: Math.min(m.gutter, 16) }}>
+              {Array.from({ length: m.columns }).map((_, c) => (
+                <span className="lay-col" key={c} />
+              ))}
+            </div>
+            <div className="lay-meta">
+              margin {m.margin} · gutter {m.gutter}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Components (Phase 2 starter library)
+// ---------------------------------------------------------------------------
+
+function ComponentsTab(props: {
+  selected: string[];
+  setSelected: React.Dispatch<React.SetStateAction<string[]>>;
+}) {
+  const { selected, setSelected } = props;
+  function toggle(key: string) {
+    setSelected((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
+  return (
+    <>
+      <div className="controls">
+        <div className="field">
+          <span className="flabel">Component library</span>
+          <div className="card">
+            <p className="note">
+              Builds Figma component sets on a <b>Components</b> page, wired to the variables you
+              generated — fills, padding, radius, and border widths bind to your tokens (and fall
+              back to literal values when a token is missing). Re-running replaces the board.
+            </p>
+          </div>
+        </div>
+
+        <div className="field">
+          <span className="flabel">Include</span>
+          <div className="card">
+            {COMPONENT_LIBRARY.map((c) => (
+              <label className="comp-row" key={c.key}>
+                <input type="checkbox" checked={selected.includes(c.key)} onChange={() => toggle(c.key)} />
+                <span className="comp-name">{c.label}</span>
+                <span className="comp-desc">{c.desc}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="preview">
+        <div className="pv-head">
+          <span className="flabel">Preview</span>
+          <em>{selected.length} selected</em>
+        </div>
+        <p className="note">
+          Components render on the canvas, not in this panel. Generate tokens first (or use{' '}
+          <b>Generate entire system</b>) so the components bind to your variables instead of literals.
+        </p>
+        <div className="comp-chips">
+          {COMPONENT_LIBRARY.filter((c) => selected.includes(c.key)).map((c) => (
+            <span className="conv-chip" key={c.key}>
+              {c.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Convert (local text styles -> variables)
+// ---------------------------------------------------------------------------
+
+function ConvertTab(props: { names: string[] }) {
+  const { names } = props;
+
+  return (
+    <>
+      <div className="controls">
+        <div className="field">
+          <span className="flabel">Text styles → variables</span>
+          <div className="card">
+            <p className="note">
+              Reads every local Text Style and writes matching variables into a{' '}
+              <b>Typography Variables</b> collection — two strings (FontFamily, FontWeight) and four
+              numbers (FontSize, LineHeight, LetterSpacing, ParagraphSpacing) per style.
+            </p>
+          </div>
+        </div>
+        {names.length === 0 ? (
+          <div className="rolehint">
+            No local text styles found. Generate typography first, then convert.
+          </div>
+        ) : (
+          <p className="note">
+            <b>{names.length}</b> text styles found → <b>{names.length * 6}</b> variables.
+          </p>
+        )}
+      </div>
+
+      <div className="preview">
+        <div className="pv-head">
+          <span className="flabel">Preview</span>
+          <em>{names.length} styles</em>
+        </div>
+        {names.length === 0 ? (
+          <p className="note">Nothing to convert yet.</p>
+        ) : (
+          names.map((name) => (
+            <div className="cv-fam" key={name}>
+              <div className="cv-cap">
+                <b>{name}</b>
+              </div>
+              <div className="conv-vars">
+                {textStyleVariables({
+                  name,
+                  fontFamily: '',
+                  fontWeight: '',
+                  fontSize: 0,
+                  lineHeight: 0,
+                  letterSpacing: 0,
+                  paragraphSpacing: 0,
+                }).map((v) => (
+                  <span className={`conv-chip ${v.type === 'STRING' ? 'str' : 'num'}`} key={v.name}>
+                    {v.name.slice(name.length + 1)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))
         )}
       </div>
     </>

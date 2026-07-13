@@ -1,5 +1,23 @@
 import { describe, test, expect } from 'vitest';
-import { defaultTypeStyles, resolveStyleName, resolveSemanticTokens } from './utils';
+import {
+  defaultTypeStyles,
+  resolveStyleName,
+  resolveSemanticTokens,
+  textStyleVariables,
+  elevationVarNames,
+  SPACING_SCALE,
+  RADIUS_SCALE,
+  ELEVATION_LEVELS,
+  SYSTEM_TOKEN_GROUPS,
+  DEFAULT_LAYOUT_MODES,
+  COMPONENT_LIBRARY,
+  COMPONENT_KEYS,
+  buttonFillToken,
+  buttonTextToken,
+  badgeFillToken,
+  badgeTextToken,
+} from './utils';
+import type { ExtractedTextStyle } from './utils';
 import type { ColorFamilyInput } from './types';
 
 describe('defaultTypeStyles', () => {
@@ -68,7 +86,7 @@ describe('resolveSemanticTokens', () => {
 
   test('full family set resolves every token with no skips', () => {
     const { plan, skipped, missingRequired } = resolveSemanticTokens(full);
-    expect(plan).toHaveLength(17);
+    expect(plan).toHaveLength(19);
     expect(skipped).toEqual([]);
     expect(missingRequired).toEqual([]);
   });
@@ -99,7 +117,7 @@ describe('resolveSemanticTokens', () => {
     const { plan, skipped } = resolveSemanticTokens(noSuccess);
     expect(plan.find((p) => p.token === 'success')).toBeUndefined();
     expect(skipped).toEqual(['success']);
-    expect(plan).toHaveLength(16);
+    expect(plan).toHaveLength(18);
   });
 
   test('missing neutral or primary is reported as required', () => {
@@ -117,5 +135,148 @@ describe('resolveSemanticTokens', () => {
     ];
     const { plan } = resolveSemanticTokens(dupes);
     expect(plan.find((p) => p.token === 'text/primary')!.lightFamily).toBe('zinc');
+  });
+});
+
+describe('textStyleVariables', () => {
+  const style: ExtractedTextStyle = {
+    name: 'Heading 1',
+    fontFamily: 'Inter',
+    fontWeight: 'Bold',
+    fontSize: 24,
+    lineHeight: 32,
+    letterSpacing: -0.2,
+    paragraphSpacing: 8,
+  };
+
+  test('emits six variables prefixed with the style name', () => {
+    const vars = textStyleVariables(style);
+    expect(vars.map((v) => v.name)).toEqual([
+      'Heading 1/FontFamily',
+      'Heading 1/FontWeight',
+      'Heading 1/FontSize',
+      'Heading 1/LineHeight',
+      'Heading 1/LetterSpacing',
+      'Heading 1/ParagraphSpacing',
+    ]);
+  });
+
+  test('strings for family/weight, floats for the numeric props', () => {
+    const vars = textStyleVariables(style);
+    const byName = (n: string) => vars.find((v) => v.name === `Heading 1/${n}`)!;
+    expect(byName('FontFamily')).toMatchObject({ type: 'STRING', value: 'Inter' });
+    expect(byName('FontWeight')).toMatchObject({ type: 'STRING', value: 'Bold' });
+    expect(byName('FontSize')).toMatchObject({ type: 'FLOAT', value: 24 });
+    expect(byName('LetterSpacing')).toMatchObject({ type: 'FLOAT', value: -0.2 });
+  });
+
+  test('nested style names stay nested (Body/Bold -> Body/Bold/FontSize)', () => {
+    const vars = textStyleVariables({ ...style, name: 'Body/Bold' });
+    expect(vars.some((v) => v.name === 'Body/Bold/FontSize')).toBe(true);
+  });
+});
+
+describe('universal system data', () => {
+  test('spacing is ascending and starts at 0', () => {
+    expect(SPACING_SCALE[0].value).toBe(0);
+    const values = SPACING_SCALE.map((s) => s.value);
+    expect([...values].sort((a, b) => a - b)).toEqual(values);
+  });
+
+  test('radius scale runs from none to a pill value', () => {
+    expect(RADIUS_SCALE[0]).toMatchObject({ name: 'none', value: 0 });
+    expect(RADIUS_SCALE[RADIUS_SCALE.length - 1].name).toBe('full');
+  });
+
+  test('elevation opacity climbs with level', () => {
+    const ops = ELEVATION_LEVELS.map((e) => e.opacity);
+    expect([...ops].sort((a, b) => a - b)).toEqual(ops);
+  });
+
+  test('elevationVarNames yields the five components for a level', () => {
+    expect(elevationVarNames(2).map((n) => n.name)).toEqual([
+      'elevation/2/x',
+      'elevation/2/y',
+      'elevation/2/blur',
+      'elevation/2/spread',
+      'elevation/2/opacity',
+    ]);
+  });
+});
+
+describe('extended token layers', () => {
+  test('ships the expected token groups', () => {
+    expect(SYSTEM_TOKEN_GROUPS.map((g) => g.prefix)).toEqual([
+      'duration',
+      'easing',
+      'opacity',
+      'state',
+      'stroke',
+      'z',
+      'focus',
+      'icon',
+    ]);
+  });
+
+  test('every variable name is unique across all groups', () => {
+    const names = SYSTEM_TOKEN_GROUPS.flatMap((g) => g.tokens.map((t) => `${g.prefix}/${t.name}`));
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  test('easing values are cubic-bezier strings on a STRING group', () => {
+    const easing = SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === 'easing')!;
+    expect(easing.type).toBe('STRING');
+    expect(easing.tokens.every((t) => /^cubic-bezier\(/.test(String(t.value)))).toBe(true);
+  });
+
+  test('durations ascend', () => {
+    const durations = SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === 'duration')!.tokens.map(
+      (t) => t.value as number,
+    );
+    expect([...durations].sort((a, b) => a - b)).toEqual(durations);
+  });
+
+  test('opacity-scoped groups use the OPACITY scope', () => {
+    for (const prefix of ['opacity', 'state']) {
+      expect(SYSTEM_TOKEN_GROUPS.find((g) => g.prefix === prefix)!.scopes).toContain('OPACITY');
+    }
+  });
+});
+
+describe('component library', () => {
+  test('COMPONENT_KEYS mirrors the library, keys unique', () => {
+    const keys = COMPONENT_LIBRARY.map((c) => c.key);
+    expect(COMPONENT_KEYS).toEqual(keys);
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  test('button fill tokens: ghost is transparent, others map to a semantic token', () => {
+    expect(buttonFillToken('primary')).toBe('action/primary');
+    expect(buttonFillToken('secondary')).toBe('action/secondary');
+    expect(buttonFillToken('danger')).toBe('danger');
+    expect(buttonFillToken('ghost')).toBeNull();
+  });
+
+  test('button text tokens: accent fills use on-accent, ghost uses the action color', () => {
+    expect(buttonTextToken('primary')).toBe('text/on-accent');
+    expect(buttonTextToken('danger')).toBe('text/on-accent');
+    expect(buttonTextToken('ghost')).toBe('action/primary');
+    expect(buttonTextToken('secondary')).toBe('text/primary');
+  });
+
+  test('badge tokens: neutral is a muted chip, colors fill with their role', () => {
+    expect(badgeFillToken('neutral')).toBe('bg/muted');
+    expect(badgeFillToken('primary')).toBe('action/primary');
+    expect(badgeFillToken('success')).toBe('success');
+    expect(badgeTextToken('neutral')).toBe('text/primary');
+    expect(badgeTextToken('danger')).toBe('text/on-accent');
+  });
+});
+
+describe('layout defaults', () => {
+  test('three breakpoints with ascending widths and columns', () => {
+    expect(DEFAULT_LAYOUT_MODES.map((m) => m.name)).toEqual(['Mobile', 'Tablet', 'Desktop']);
+    expect(DEFAULT_LAYOUT_MODES.map((m) => m.width)).toEqual([402, 768, 1440]);
+    expect(DEFAULT_LAYOUT_MODES.map((m) => m.columns)).toEqual([4, 8, 12]);
   });
 });
