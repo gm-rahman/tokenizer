@@ -839,3 +839,159 @@ export function textStyleVariables(s: ExtractedTextStyle): TextStyleVar[] {
     { name: `${s.name}/ParagraphSpacing`, type: 'FLOAT', value: s.paragraphSpacing },
   ];
 }
+
+// ---------------------------------------------------------------------------
+// W3C DTCG export
+// Serialize the current UI configuration to a Design Tokens Community Group JSON
+// tree (color / dimension / duration / cubicBezier / shadow / typography), with
+// semantic tokens as aliases into the primitives. Pure — the UI turns the object
+// into a file download. DTCG has no native theming, so semantic tokens are split
+// into `semantic.light` and `semantic.dark`, each aliasing the primitive step for
+// that mode.
+// ---------------------------------------------------------------------------
+
+export interface DtcgInput {
+  families: ColorFamilyInput[];
+  space: ColorSpace;
+  fontFamily: string;
+  styles: TypeStyle[];
+  /** Hex tint the elevation shadows are built from. */
+  shadowTint: string;
+  layoutModes: LayoutMode[];
+}
+
+type DtcgTree = Record<string, unknown>;
+
+function dim(value: number): { value: number; unit: 'px' } {
+  return { value, unit: 'px' };
+}
+
+/** Write `value` at a slash-delimited path, creating nested groups as needed. */
+function setNested(root: DtcgTree, path: string, value: unknown): void {
+  const parts = path.split('/');
+  let cur = root;
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (typeof cur[parts[i]] !== 'object' || cur[parts[i]] === null) cur[parts[i]] = {};
+    cur = cur[parts[i]] as DtcgTree;
+  }
+  cur[parts[parts.length - 1]] = value;
+}
+
+/** "#rrggbb" + an opacity percentage → 8-digit "#rrggbbaa". */
+function hexWithAlpha(hex: string, opacityPct: number): string {
+  const base = rgbToHex(hexToRgb(hex)).slice(1);
+  const a = Math.max(0, Math.min(255, Math.round((opacityPct / 100) * 255)))
+    .toString(16)
+    .padStart(2, '0');
+  return `#${base}${a}`;
+}
+
+/** Parse "cubic-bezier(x1, y1, x2, y2)" into the DTCG 4-number array. */
+function parseCubicBezier(s: string): number[] {
+  const m = s.match(/cubic-bezier\(([^)]+)\)/);
+  if (!m) return [0, 0, 1, 1];
+  return m[1].split(',').map((n) => Number(n.trim()));
+}
+
+function systemGroupType(prefix: string): string {
+  if (prefix === 'duration') return 'duration';
+  if (prefix === 'easing') return 'cubicBezier';
+  if (prefix === 'stroke' || prefix === 'focus' || prefix === 'icon') return 'dimension';
+  return 'number'; // opacity, state, z
+}
+
+function systemGroupValue(prefix: string, value: number | string): unknown {
+  if (prefix === 'duration') return { value: Number(value), unit: 'ms' };
+  if (prefix === 'easing') return parseCubicBezier(String(value));
+  if (prefix === 'stroke' || prefix === 'focus' || prefix === 'icon') return dim(Number(value));
+  return Number(value);
+}
+
+export function buildDtcgTokens(input: DtcgInput): DtcgTree {
+  const { families, space, fontFamily, styles, shadowTint, layoutModes } = input;
+
+  // Primitives — a color group per family.
+  const primitives: DtcgTree = { $type: 'color' };
+  for (const f of families) {
+    const ramp: DtcgTree = {};
+    for (const s of generateScale(f.baseHex, space)) ramp[String(s.step)] = { $value: s.hex };
+    primitives[f.name] = ramp;
+  }
+
+  // Semantic — aliases into primitives, one subtree per mode.
+  const resolution = resolveSemanticTokens(families);
+  const semanticMode = (mode: 'light' | 'dark'): DtcgTree => {
+    const group: DtcgTree = { $type: 'color' };
+    for (const t of resolution.plan) {
+      const family = mode === 'light' ? t.lightFamily : t.darkFamily;
+      const step = mode === 'light' ? t.lightStep : t.darkStep;
+      setNested(group, t.token, { $value: `{primitives.${family}.${step}}` });
+    }
+    return group;
+  };
+
+  // System — spacing / radii (dimension), elevation (shadow), and the extended
+  // token groups (duration / easing / opacity / state / stroke / z / focus / icon).
+  const system: DtcgTree = {};
+  const spacing: DtcgTree = { $type: 'dimension' };
+  for (const s of SPACING_SCALE) spacing[s.name] = { $value: dim(s.value) };
+  system.space = spacing;
+  const radii: DtcgTree = { $type: 'dimension' };
+  for (const r of RADIUS_SCALE) radii[r.name] = { $value: dim(r.value) };
+  system.radius = radii;
+  const elevation: DtcgTree = { $type: 'shadow' };
+  for (const e of ELEVATION_LEVELS) {
+    elevation[String(e.level)] = {
+      $value: {
+        color: hexWithAlpha(shadowTint, e.opacity),
+        offsetX: dim(e.x),
+        offsetY: dim(e.y),
+        blur: dim(e.blur),
+        spread: dim(e.spread),
+      },
+    };
+  }
+  system.elevation = elevation;
+  for (const group of SYSTEM_TOKEN_GROUPS) {
+    const out: DtcgTree = { $type: systemGroupType(group.prefix) };
+    for (const tk of group.tokens) out[tk.name] = { $value: systemGroupValue(group.prefix, tk.value) };
+    system[group.prefix] = out;
+  }
+
+  // Typography — one composite token per style/weight (Body/Bold nests as Body.Bold).
+  const typography: DtcgTree = {};
+  for (const st of styles) {
+    const weights = st.weights.length > 0 ? st.weights : [400];
+    const family = st.font && st.font.trim() ? st.font : fontFamily;
+    for (const w of weights) {
+      setNested(typography, resolveStyleName(st.name, w, weights.length), {
+        $type: 'typography',
+        $value: {
+          fontFamily: family,
+          fontWeight: w,
+          fontSize: dim(st.fontSize),
+          lineHeight: st.lineHeight,
+          letterSpacing: dim(st.letterSpacing),
+        },
+      });
+    }
+  }
+
+  // Layout — one group per breakpoint mode.
+  const layout: DtcgTree = {};
+  for (const m of layoutModes) {
+    layout[m.name.toLowerCase()] = {
+      width: { $type: 'dimension', $value: dim(m.width) },
+      columns: { $type: 'number', $value: m.columns },
+      margin: { $type: 'dimension', $value: dim(m.margin) },
+      gutter: { $type: 'dimension', $value: dim(m.gutter) },
+    };
+  }
+
+  const root: DtcgTree = { primitives };
+  if (resolution.plan.length > 0) root.semantic = { light: semanticMode('light'), dark: semanticMode('dark') };
+  root.system = system;
+  root.typography = typography;
+  root.layout = layout;
+  return root;
+}
