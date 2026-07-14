@@ -470,6 +470,20 @@ async function loadDocFonts(): Promise<{ regular: FontName; bold: FontName }> {
 async function generateDocsPage(payload: GenerateAllPayload): Promise<void> {
   const { regular, bold } = await loadDocFonts();
 
+  // Switch to the target page BEFORE building any nodes, so everything is created
+  // on it directly — reparenting fresh nodes across pages is what throws
+  // "appendChild: node does not exist".
+  await figma.loadAllPagesAsync();
+  let page = figma.root.children.find((p) => p.name === 'Design System');
+  if (!page) {
+    page = figma.createPage();
+    page.name = 'Design System';
+  }
+  for (const child of page.children) {
+    if (child.name === DOC_FRAME_NAME) child.remove();
+  }
+  await figma.setCurrentPageAsync(page);
+
   const text = (chars: string, font: FontName, size: number, color: RGB01 = INK): TextNode => {
     const t = figma.createText();
     t.fontName = font;
@@ -558,18 +572,7 @@ async function generateDocsPage(payload: GenerateAllPayload): Promise<void> {
   root.appendChild(section('Typography', stack('VERTICAL', 16, typeRows)));
   root.appendChild(section('Foundations', stack('HORIZONTAL', 40, layerRows)));
 
-  // Find-or-create the page, drop the previous reference frame, and add the new one.
-  await figma.loadAllPagesAsync();
-  let page = figma.root.children.find((p) => p.name === 'Design System');
-  if (!page) {
-    page = figma.createPage();
-    page.name = 'Design System';
-  }
-  for (const child of page.children) {
-    if (child.name === DOC_FRAME_NAME) child.remove();
-  }
-  page.appendChild(root);
-  await figma.setCurrentPageAsync(page);
+  // `root` was created on the current page (already the Design System page).
   figma.viewport.scrollAndZoomIntoView([root]);
 }
 
@@ -1086,6 +1089,20 @@ async function generateComponents(payload: GenerateComponentsPayload): Promise<v
   const styles = await figma.getLocalTextStylesAsync();
   const { regular } = await loadDocFonts();
 
+  // Switch to the Components page BEFORE building, so components, variant sets, and
+  // the board are all created on it directly — reparenting fresh nodes across pages
+  // throws "appendChild: node does not exist".
+  await figma.loadAllPagesAsync();
+  let page = figma.root.children.find((p) => p.name === 'Components');
+  if (!page) {
+    page = figma.createPage();
+    page.name = 'Components';
+  }
+  for (const child of page.children) {
+    if (child.name === COMP_BOARD_NAME) child.remove();
+  }
+  await figma.setCurrentPageAsync(page);
+
   const builders: Record<string, () => Promise<SceneNode>> = {
     button: () => buildButton(index, styles, regular),
     badge: () => buildBadge(index, styles, regular),
@@ -1118,17 +1135,7 @@ async function generateComponents(payload: GenerateComponentsPayload): Promise<v
     post({ type: 'progress', message: `Component ${key}`, current: (current += 1), total });
   }
 
-  // Place everything on a "Components" page in a labelled board; replace on re-run.
-  await figma.loadAllPagesAsync();
-  let page = figma.root.children.find((p) => p.name === 'Components');
-  if (!page) {
-    page = figma.createPage();
-    page.name = 'Components';
-  }
-  for (const child of page.children) {
-    if (child.name === COMP_BOARD_NAME) child.remove();
-  }
-
+  // Board is created on the current page (already the Components page).
   const board = figma.createFrame();
   board.name = COMP_BOARD_NAME;
   board.layoutMode = 'VERTICAL';
@@ -1151,8 +1158,6 @@ async function generateComponents(payload: GenerateComponentsPayload): Promise<v
     group.appendChild(node);
     board.appendChild(group);
   }
-  page.appendChild(board);
-  await figma.setCurrentPageAsync(page);
   figma.viewport.scrollAndZoomIntoView([board]);
 
   const note = failed.length ? ` (failed: ${failed.join(', ')})` : '';
