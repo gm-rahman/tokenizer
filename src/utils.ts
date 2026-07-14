@@ -726,6 +726,8 @@ export const COMPONENT_LIBRARY: ComponentInfo[] = [
   { key: 'alert', label: 'Alert', desc: '4 variants · subtle bg + accent dot' },
   { key: 'avatar', label: 'Avatar', desc: '3 sizes · circle + initials' },
   { key: 'tooltip', label: 'Tooltip', desc: 'inverse surface + inverse text' },
+  { key: 'tag', label: 'Tag', desc: 'chip with close · radius/sm' },
+  { key: 'form-field', label: 'Form field', desc: 'label + control + help text' },
 ];
 
 export const COMPONENT_KEYS = COMPONENT_LIBRARY.map((c) => c.key);

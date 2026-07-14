@@ -40,17 +40,18 @@ creation of a design system's foundations directly inside a Figma file:
   a literal-value fallback when a token is absent. Metadata is pure data in
   `COMPONENT_LIBRARY`; builders live in `code.ts` (`buildButton`, `buildBadge`,
   `buildInput`, `buildTextarea`, `buildSelect`, `buildCard`, `buildCheckbox`,
-  `buildRadio`, `buildSwitch`, `buildAlert`, `buildAvatar`, `buildTooltip` — the
-  Tooltip uses the `bg/inverse`/`text/inverse` tokens), each defensive so one
-  failure never aborts the pass. Re-run replaces the `Component Library` board.
+  `buildRadio`, `buildSwitch`, `buildAlert`, `buildAvatar`, `buildTooltip`,
+  `buildTag`, `buildFormField` — the Tooltip uses the `bg/inverse`/`text/inverse`
+  tokens; the Form field composes an inline control, not an Input instance), each
+  defensive so one failure never aborts the pass. Re-run replaces the
+  `Component Library` board.
 
 The plugin UI is a Figma-native React app with **Typography / Colors / System /
 Layout / Components / Convert** tabs in a two-column layout (controls left, live
 preview right). The sandbox posts the installed font list
 (`figma.listAvailableFontsAsync`) so the UI can offer font dropdowns.
 
-**Roadmap:** remaining components — Tag and Form field (a molecule composing
-label + control + help/error). See
+The starter component set from the spec is now complete (14 components). See
 `docs/superpowers/specs/2026-07-14-whole-design-system-design.md`.
 
 ## Commands

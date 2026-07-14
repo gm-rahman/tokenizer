@@ -1015,6 +1015,72 @@ async function buildTooltip(
   return c;
 }
 
+async function buildTag(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Tag';
+  c.layoutMode = 'HORIZONTAL';
+  c.primaryAxisSizingMode = 'AUTO';
+  c.counterAxisSizingMode = 'AUTO';
+  c.counterAxisAlignItems = 'CENTER';
+  pad(c, index, '3', '2');
+  gap(c, index, '2');
+  radius(c, index, 'sm', 6);
+  c.fills = [fillPaint(index, 'bg/subtle')];
+  c.strokes = [fillPaint(index, 'border/default')];
+  c.strokeAlign = 'INSIDE';
+  strokeWidth(c, index, 'sm', 1);
+  const label = await makeTextNode('Tag', 'Caption', styles, font, 12, fillPaint(index, 'text/primary'));
+  const close = await makeTextNode('×', '', [], font, 13, fillPaint(index, 'text/secondary'));
+  c.appendChild(label);
+  c.appendChild(close);
+  return c;
+}
+
+async function buildFormField(
+  index: Map<string, Variable>,
+  styles: TextStyle[],
+  font: FontName,
+): Promise<ComponentNode> {
+  const c = figma.createComponent();
+  c.name = 'Form field';
+  c.layoutMode = 'VERTICAL';
+  c.primaryAxisSizingMode = 'AUTO';
+  c.counterAxisSizingMode = 'FIXED';
+  gap(c, index, '2');
+  c.fills = [];
+
+  const label = await makeTextNode('Label', 'Label', styles, font, 12, fillPaint(index, 'text/primary'));
+
+  // Inline control styled like Input (not an Input instance — keeps re-runs safe
+  // and independent of whether Input was selected in the same pass).
+  const control = figma.createFrame();
+  control.name = 'control';
+  control.layoutMode = 'HORIZONTAL';
+  control.counterAxisSizingMode = 'AUTO';
+  control.counterAxisAlignItems = 'CENTER';
+  pad(control, index, '4', '3');
+  radius(control, index, 'md', 8);
+  control.fills = [fillPaint(index, 'bg/surface')];
+  control.strokes = [fillPaint(index, 'border/default')];
+  control.strokeAlign = 'INSIDE';
+  strokeWidth(control, index, 'sm', 1);
+  const placeholder = await makeTextNode('Placeholder', 'Body', styles, font, 14, fillPaint(index, 'text/secondary'));
+  control.appendChild(placeholder);
+
+  const help = await makeTextNode('Helper text', 'Caption', styles, font, 12, fillPaint(index, 'text/secondary'));
+
+  c.appendChild(label);
+  c.appendChild(control);
+  c.appendChild(help);
+  c.resize(280, Math.max(1, c.height));
+  control.layoutSizingHorizontal = 'FILL';
+  return c;
+}
+
 async function generateComponents(payload: GenerateComponentsPayload): Promise<void> {
   const index = await buildVarIndex();
   const styles = await figma.getLocalTextStylesAsync();
@@ -1033,6 +1099,8 @@ async function generateComponents(payload: GenerateComponentsPayload): Promise<v
     alert: () => buildAlert(index, styles, regular),
     avatar: () => buildAvatar(index, regular),
     tooltip: () => buildTooltip(index, styles, regular),
+    tag: () => buildTag(index, styles, regular),
+    'form-field': () => buildFormField(index, styles, regular),
   };
 
   const built: { label: string; node: SceneNode }[] = [];
