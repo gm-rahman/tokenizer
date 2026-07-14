@@ -1,0 +1,152 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1783991444.9233825,
+    "ast_hash": "4032d6c7d70b05ab59bf1e0a3b968d3b",
+    "semantic_hash": "4032d6c7d70b05ab59bf1e0a3b968d3b"
+  },
+  ".impeccable/hook.cache.json": {
+    "mtime": 1783988987.4033215,
+    "ast_hash": "83e889891f4d6f62646882c5f76e6ae2",
+    "semantic_hash": "83e889891f4d6f62646882c5f76e6ae2"
+  },
+  ".remember/tmp/last-ndc.ts": {
+    "mtime": 1783991070.4122689,
+    "ast_hash": "5c275fb42283d2e57dffe82a75046b6e",
+    "semantic_hash": "5c275fb42283d2e57dffe82a75046b6e"
+  },
+  ".remember/tmp/last-save.json": {
+    "mtime": 1784056262.7355368,
+    "ast_hash": "90011d4479815a331b800a99672980da",
+    "semantic_hash": "90011d4479815a331b800a99672980da"
+  },
+  "eslint.config.js": {
+    "mtime": 1783985983.6352623,
+    "ast_hash": "f9731c042ad7c4fd44abbc4ea1cb016e",
+    "semantic_hash": "f9731c042ad7c4fd44abbc4ea1cb016e"
+  },
+  "manifest.json": {
+    "mtime": 1783357012.338432,
+    "ast_hash": "f78154f4f35bcbf9784dda4a800b6cc8",
+    "semantic_hash": "f78154f4f35bcbf9784dda4a800b6cc8"
+  },
+  "package.json": {
+    "mtime": 1783357012.340432,
+    "ast_hash": "8071891ee9ea5d5229435757964ea113",
+    "semantic_hash": "8071891ee9ea5d5229435757964ea113"
+  },
+  "scripts/sync-to-main.sh": {
+    "mtime": 1783991444.927901,
+    "ast_hash": "2fe2f2a04cc600db18baedcda0e67a8d",
+    "semantic_hash": "2fe2f2a04cc600db18baedcda0e67a8d"
+  },
+  "src/code.ts": {
+    "mtime": 1783989067.8852808,
+    "ast_hash": "947870fc872ba1393cc8a5fb8b4b19be",
+    "semantic_hash": "947870fc872ba1393cc8a5fb8b4b19be"
+  },
+  "src/main.tsx": {
+    "mtime": 1783357012.341432,
+    "ast_hash": "23382ad4774b1ee69575461e00c0fba3",
+    "semantic_hash": "23382ad4774b1ee69575461e00c0fba3"
+  },
+  "src/types.ts": {
+    "mtime": 1783985983.6372685,
+    "ast_hash": "ef8bd60af7bf6cc2e2b6584592f85e2a",
+    "semantic_hash": "ef8bd60af7bf6cc2e2b6584592f85e2a"
+  },
+  "src/ui.tsx": {
+    "mtime": 1783987907.0999103,
+    "ast_hash": "f5c71037542eaa165adefd4883ca9ebf",
+    "semantic_hash": "f5c71037542eaa165adefd4883ca9ebf"
+  },
+  "src/utils.test.ts": {
+    "mtime": 1783987907.100914,
+    "ast_hash": "0c76df01a99fb7783366fbf09ad86926",
+    "semantic_hash": "0c76df01a99fb7783366fbf09ad86926"
+  },
+  "src/utils.ts": {
+    "mtime": 1783987907.1019106,
+    "ast_hash": "ee7469d2b62b99fc336aa1ed8c76a2b4",
+    "semantic_hash": "ee7469d2b62b99fc336aa1ed8c76a2b4"
+  },
+  "tsconfig.json": {
+    "mtime": 1783357012.3444328,
+    "ast_hash": "c19d9cec85fafa0056ef0fc68ca14129",
+    "semantic_hash": "c19d9cec85fafa0056ef0fc68ca14129"
+  },
+  "vite.config.code.ts": {
+    "mtime": 1783357012.3444328,
+    "ast_hash": "b488e4f0d84f572b6953eec40214d946",
+    "semantic_hash": "b488e4f0d84f572b6953eec40214d946"
+  },
+  "vite.config.ui.ts": {
+    "mtime": 1783357012.3454337,
+    "ast_hash": "ebe42a38fdf277665a6786c8faace303",
+    "semantic_hash": "ebe42a38fdf277665a6786c8faace303"
+  },
+  ".claude/hookify.warn-figma-dynamic-page-sync.local.md": {
+    "mtime": 1783991444.922624,
+    "ast_hash": "dfda16cd2550c6e3c6f9add53f7ca0fd",
+    "semantic_hash": "dfda16cd2550c6e3c6f9add53f7ca0fd"
+  },
+  ".github/workflows/build.yml": {
+    "mtime": 1783357012.335433,
+    "ast_hash": "3185c0abfec11aae6b3005c523fd1c9f",
+    "semantic_hash": "3185c0abfec11aae6b3005c523fd1c9f"
+  },
+  ".remember/archive.md": {
+    "mtime": 1784056268.222406,
+    "ast_hash": "f0bad51a71a1cf16b732250cb3eb522b",
+    "semantic_hash": "f0bad51a71a1cf16b732250cb3eb522b"
+  },
+  ".remember/now.md": {
+    "mtime": 1783991338.7456396,
+    "ast_hash": "38025305ceba3fb5dd2d53ee87c4c348",
+    "semantic_hash": "38025305ceba3fb5dd2d53ee87c4c348"
+  },
+  ".remember/recent.md": {
+    "mtime": 1784056268.1994014,
+    "ast_hash": "7ffe2971b40ac06b57287b2594f8192b",
+    "semantic_hash": "7ffe2971b40ac06b57287b2594f8192b"
+  },
+  ".remember/today-2026-07-08.done.md": {
+    "mtime": 1783451297.8146825,
+    "ast_hash": "ee6f16e967df0936eb164f68964eb61d",
+    "semantic_hash": "ee6f16e967df0936eb164f68964eb61d"
+  },
+  ".remember/today-2026-07-14.done.md": {
+    "mtime": 1783991128.7525856,
+    "ast_hash": "10b5a7d49956b5e2ef8778d69cad318b",
+    "semantic_hash": "10b5a7d49956b5e2ef8778d69cad318b"
+  },
+  "CLAUDE.md": {
+    "mtime": 1783987907.098914,
+    "ast_hash": "3e470cddf4abe9a36884c69c63b1dfcc",
+    "semantic_hash": "3e470cddf4abe9a36884c69c63b1dfcc"
+  },
+  "docs/superpowers/specs/2026-07-06-token-generator-redesign-design.md": {
+    "mtime": 1783991444.924895,
+    "ast_hash": "f57d76b3112185049e6cb56cfc416541",
+    "semantic_hash": "f57d76b3112185049e6cb56cfc416541"
+  },
+  "docs/superpowers/specs/2026-07-14-whole-design-system-design.md": {
+    "mtime": 1783991444.925904,
+    "ast_hash": "27cc16a536bb05ae2887cd66ef2ba8e3",
+    "semantic_hash": "27cc16a536bb05ae2887cd66ef2ba8e3"
+  },
+  "index.html": {
+    "mtime": 1783357012.337432,
+    "ast_hash": "d5014d4cb331b7385db5f4cea68c6f49",
+    "semantic_hash": "d5014d4cb331b7385db5f4cea68c6f49"
+  },
+  "log.md": {
+    "mtime": 1783991444.9269044,
+    "ast_hash": "4fc0243b03d9565f4dbed67eee992db7",
+    "semantic_hash": "4fc0243b03d9565f4dbed67eee992db7"
+  },
+  "plan/plan.md": {
+    "mtime": 1783991444.9269044,
+    "ast_hash": "2997f1f786d0cabb7e62a856d9e19f4c",
+    "semantic_hash": "2997f1f786d0cabb7e62a856d9e19f4c"
+  }
+}
