@@ -17,6 +17,7 @@ import {
   badgeFillToken,
   badgeTextToken,
   alertAccentToken,
+  buildDtcgTokens,
 } from './utils';
 import type { ExtractedTextStyle } from './utils';
 import type { ColorFamilyInput } from './types';
@@ -278,6 +279,59 @@ describe('component library', () => {
     expect(alertAccentToken('success')).toBe('success');
     expect(alertAccentToken('warning')).toBe('warning');
     expect(alertAccentToken('danger')).toBe('danger');
+  });
+});
+
+describe('buildDtcgTokens', () => {
+  const families: ColorFamilyInput[] = [
+    { name: 'slate', baseHex: '#64748b', role: 'neutral' },
+    { name: 'blue', baseHex: '#3b82f6', role: 'primary' },
+  ];
+  const styles = defaultTypeStyles(16, 1.25, 1).map((s, i) => ({ ...s, id: `s${i}` }));
+  const tokens = buildDtcgTokens({
+    families,
+    space: 'oklch',
+    fontFamily: 'Inter',
+    styles,
+    shadowTint: '#101828',
+    layoutModes: DEFAULT_LAYOUT_MODES,
+  });
+  const get = (o: unknown, ...keys: string[]): unknown =>
+    keys.reduce((cur, k) => (cur as Record<string, unknown>)[k], o);
+
+  test('primitives are a color group with hex ramps', () => {
+    expect(get(tokens, 'primitives', '$type')).toBe('color');
+    expect(get(tokens, 'primitives', 'slate', '500', '$value')).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+
+  test('semantic tokens are aliases into primitives, split by mode', () => {
+    expect(get(tokens, 'semantic', 'light', 'bg', 'canvas', '$value')).toMatch(/^\{primitives\..+\.\d+\}$/);
+    expect(get(tokens, 'semantic', 'dark', 'text', 'primary', '$value')).toMatch(/^\{primitives\..+\.\d+\}$/);
+  });
+
+  test('duration is a DTCG duration and easing is a cubicBezier array', () => {
+    expect(get(tokens, 'system', 'duration', '$type')).toBe('duration');
+    expect(get(tokens, 'system', 'duration', 'normal', '$value')).toEqual({ value: 200, unit: 'ms' });
+    expect(get(tokens, 'system', 'easing', '$type')).toBe('cubicBezier');
+    expect(get(tokens, 'system', 'easing', 'standard', '$value')).toEqual([0.2, 0, 0, 1]);
+  });
+
+  test('elevation is a shadow composite with an 8-digit color', () => {
+    const v = get(tokens, 'system', 'elevation', '1', '$value') as Record<string, unknown>;
+    expect(v.offsetY).toEqual({ value: 1, unit: 'px' });
+    expect(String(v.color)).toMatch(/^#[0-9a-f]{8}$/i);
+  });
+
+  test('typography composite nests multi-weight styles', () => {
+    expect(get(tokens, 'typography', 'Body', 'Semi Bold', '$type')).toBe('typography');
+    const val = get(tokens, 'typography', 'Body', 'Semi Bold', '$value') as Record<string, unknown>;
+    expect(val.fontWeight).toBe(600);
+    expect(val.fontSize).toEqual({ value: 16, unit: 'px' });
+  });
+
+  test('layout groups per breakpoint', () => {
+    expect(get(tokens, 'layout', 'mobile', 'columns', '$value')).toBe(4);
+    expect(get(tokens, 'layout', 'desktop', 'width', '$value')).toEqual({ value: 1440, unit: 'px' });
   });
 });
 

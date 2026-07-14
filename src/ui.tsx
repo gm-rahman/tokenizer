@@ -13,6 +13,7 @@ import {
   LAYOUT_VARIABLES,
   COMPONENT_LIBRARY,
   COMPONENT_KEYS,
+  buildDtcgTokens,
   textStyleVariables,
 } from './utils';
 import type { LayoutMode } from './utils';
@@ -208,6 +209,21 @@ export function App() {
     }
   }
 
+  function handleExport() {
+    const tokens = buildDtcgTokens({ families, space, fontFamily, styles, shadowTint, layoutModes });
+    const json = JSON.stringify(tokens, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'design-tokens.json';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    setToast({ kind: 'success', message: 'Exported design-tokens.json (W3C DTCG)' });
+  }
+
   function handleGenerateAll() {
     setToast(null);
     sendMessage({
@@ -331,6 +347,9 @@ export function App() {
             Docs page
           </label>
           <span className="foot-note">{footNote}</span>
+          <button type="button" className="ghost" onClick={handleExport} title="Export all tokens as W3C DTCG JSON">
+            Export JSON
+          </button>
           <button type="button" className="ghost" disabled={busy} onClick={handleGenerateAll}>
             Generate entire system
           </button>

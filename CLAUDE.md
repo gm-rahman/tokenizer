@@ -33,6 +33,12 @@ creation of a design system's foundations directly inside a Figma file:
   on-canvas **"Design System"** documentation page from the in-memory payload
   (find-or-replaces its own `Design System Reference` frame).
 - **Convert** — local Text Styles → a `Typography Variables` collection.
+- **Export JSON** — a footer action serializes the current UI config to **W3C
+  DTCG** JSON (`buildDtcgTokens` in `utils.ts`, pure/tested) and downloads
+  `design-tokens.json` from the iframe. Primitives are `color`; semantic tokens
+  are aliases split into `semantic.light`/`semantic.dark`; motion is
+  `duration`/`cubicBezier`; elevation is a `shadow` composite; type styles are the
+  `typography` composite.
 
 - **Component library** — a `Components` tab builds starter Figma component sets
   on a `Components` page, wired to the variables above (fills → semantic color
